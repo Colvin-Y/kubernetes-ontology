@@ -38,6 +38,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Compute image tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_VERSION}" ]; then
+            echo "RELEASE_VERSION is required" >&2
+            exit 1
+          fi
+          echo "IMAGE_VERSION=${RELEASE_VERSION#v}" >> "${GITHUB_ENV}"
+
       - name: Build and push
         uses: docker/build-push-action@v7
         with:
@@ -46,4 +56,5 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.RELEASE_VERSION }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_VERSION }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest

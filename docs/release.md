@@ -66,6 +66,7 @@ Pushing the tag starts both workflows:
 
   ```text
   ghcr.io/colvin-y/kubernetes-ontology:v0.1.0
+  ghcr.io/colvin-y/kubernetes-ontology:0.1.0
   ghcr.io/colvin-y/kubernetes-ontology:latest
   ```
 

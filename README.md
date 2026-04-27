@@ -70,7 +70,7 @@ Tagged releases publish no-compile artifacts:
   `kubernetes-ontology-viewer`, then attaches them to the GitHub Release.
 - `.github/workflows/docker.yml` builds a multi-arch image and pushes it to
   GitHub Container Registry as `ghcr.io/colvin-y/kubernetes-ontology:<tag>`
-  and `latest`.
+  plus the SemVer alias without the leading `v`, and `latest`.
 
 No Docker Hub account or repository secret is required. The workflow uses the
 repository `GITHUB_TOKEN` with `packages: write` permission.
