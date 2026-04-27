@@ -1,0 +1,50 @@
+# Copy to local/kubernetes-ontology.yaml and edit for your machine.
+# local/*.yaml is ignored by git.
+
+kubeconfig: /absolute/path/to/kubeconfig.yaml
+cluster: kind-kind
+
+# Default namespace for CLI filters and diagnostic entrypoints.
+namespace: default
+
+# Namespaces collected by the server. Empty list means all namespaces.
+contextNamespaces:
+  - default
+  - kube-system
+
+# Custom workload-like resources to collect with the Kubernetes dynamic client.
+# This lets ownerReference chains resolve through CRDs such as Kruise ASTS and
+# domain operators such as RedisCluster.
+workloadResources:
+  - group: apps.kruise.io
+    version: v1beta1
+    resource: statefulsets
+    kind: StatefulSet
+    namespaced: true
+  - group: redis.io
+    version: v1beta1
+    resource: clusters
+    kind: Cluster
+    namespaced: true
+
+# Display-only controller ownership rules that Kubernetes does not expose
+# through ownerReferences. apiVersion supports exact values and group wildcards.
+controllerRules:
+  - apiVersion: apps.kruise.io/*
+    kind: "*"
+    namespace: kruise-system
+    controllerPodPrefixes:
+      - kruise-controller-manager
+    nodeDaemonPodPrefixes:
+      - kruise-daemon
+
+server:
+  addr: 127.0.0.1:18080
+  url: http://127.0.0.1:18080
+
+bootstrapTimeout: 2m
+streamMode: informer
+pollInterval: 5s
+observeDuration: 40s
+maxDepth: 2
+storageMaxDepth: 5

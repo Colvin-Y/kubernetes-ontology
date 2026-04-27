@@ -1,0 +1,2473 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>kubernetes-ontology topology</title>
+  <style>
+    :root {
+      --bg: #0c0f14;
+      --panel: #151922;
+      --panel-2: #1d2430;
+      --panel-3: #11151d;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --line: #303846;
+      --accent: #38bdf8;
+      --accent-2: #34d399;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+      --pod: #60a5fa;
+      --workload: #c084fc;
+      --service: #34d399;
+      --secret: #fb923c;
+      --configmap: #22d3ee;
+      --pvc: #facc15;
+      --pv: #fb7185;
+      --storageclass: #a78bfa;
+      --csidriver: #38bdf8;
+      --event: #f87171;
+      --node: #2dd4bf;
+      --image: #94a3b8;
+      --serviceaccount: #a3e635;
+      --rbac: #f472b6;
+      --webhook: #fbbf24;
+      --default: #cbd5e1;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: minmax(320px, 380px) 1fr minmax(330px, 420px);
+      color: var(--text);
+      background: var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    .panel {
+      min-width: 0;
+      overflow: auto;
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+    }
+
+    .panel.right {
+      border-right: 0;
+      border-left: 1px solid var(--line);
+    }
+
+    .section {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section.compact {
+      padding-top: 10px;
+      padding-bottom: 10px;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      font-weight: 650;
+    }
+
+    h1 {
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    h2 {
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    h3 {
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    code {
+      color: #bae6fd;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .row > * {
+      min-width: 0;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    input[type="file"],
+    input[type="text"],
+    input[type="number"],
+    select {
+      width: 100%;
+      min-height: 36px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel-2);
+      color: var(--text);
+      outline: none;
+    }
+
+    input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+    }
+
+    button {
+      min-height: 36px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel-2);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    button:hover {
+      border-color: #4b5563;
+      background: #263040;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: .58;
+    }
+
+    button.primary {
+      border-color: rgba(56,189,248,.35);
+      background: var(--accent);
+      color: #06111a;
+      font-weight: 700;
+    }
+
+    button.success {
+      border-color: rgba(52,211,153,.35);
+      background: var(--accent-2);
+      color: #031410;
+      font-weight: 700;
+    }
+
+    button.ghost {
+      background: transparent;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .filter-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .filter-toolbar button {
+      min-height: 30px;
+      padding: 5px 8px;
+      font-size: 12px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .stat {
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel-2);
+    }
+
+    .stat .label {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .stat .value {
+      margin-top: 3px;
+      font-size: 18px;
+      font-weight: 750;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 100%;
+      margin: 4px 4px 0 0;
+      padding: 4px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel-2);
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.25;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      flex: 0 0 auto;
+      border-radius: 999px;
+      background: var(--muted);
+    }
+
+    .dot.ready { background: var(--accent-2); }
+    .dot.warn { background: var(--warn); }
+    .dot.bad { background: var(--bad); }
+
+    .list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .item {
+      min-width: 0;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel-2);
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .item.clickable {
+      cursor: pointer;
+    }
+
+    .item.clickable:hover {
+      border-color: #4b5563;
+      background: #263040;
+    }
+
+    .item-title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 650;
+    }
+
+    .item-subtitle {
+      margin-top: 3px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .kind-list {
+      display: grid;
+      gap: 7px;
+    }
+
+    .kind-row {
+      display: grid;
+      grid-template-columns: 18px 14px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border: 1px solid rgba(255,255,255,.25);
+      border-radius: 3px;
+    }
+
+    .count {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      min-width: 0;
+      overflow: hidden;
+      cursor: grab;
+      background:
+        radial-gradient(circle at 50% 45%, rgba(56,189,248,.08), transparent 42%),
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px),
+        var(--bg);
+      background-size: auto, 42px 42px, 42px 42px, auto;
+    }
+
+    .toolbar {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 10;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid rgba(48,56,70,.9);
+      border-radius: 8px;
+      background: rgba(17,21,29,.9);
+      backdrop-filter: blur(10px);
+    }
+
+    .toolbar select {
+      width: auto;
+      min-width: 150px;
+      min-height: 34px;
+    }
+
+    .toolbar label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    svg {
+      width: 100%;
+      height: 100vh;
+      display: block;
+    }
+
+    .edge {
+      fill: none;
+      stroke: rgba(203,213,225,.42);
+      stroke-width: 1.6;
+      marker-end: url(#arrow);
+      cursor: pointer;
+    }
+
+    .edge.dimmed {
+      stroke: rgba(203,213,225,.13);
+    }
+
+    .edge.highlight {
+      stroke: var(--accent);
+      stroke-width: 2.7;
+    }
+
+    .edge.selected {
+      stroke: #f8fafc;
+      stroke-width: 3;
+    }
+
+    .edge-label {
+      fill: #cbd5e1;
+      font-size: 10px;
+      paint-order: stroke;
+      stroke: rgba(12,15,20,.92);
+      stroke-width: 4px;
+      stroke-linejoin: round;
+      pointer-events: none;
+    }
+
+    .group-rule {
+      stroke: rgba(148,163,184,.18);
+      stroke-width: 1;
+      stroke-dasharray: 4 6;
+      pointer-events: none;
+    }
+
+    .group-label {
+      fill: var(--muted);
+      font-size: 11px;
+      font-weight: 650;
+      paint-order: stroke;
+      stroke: rgba(12,15,20,.9);
+      stroke-width: 4px;
+      stroke-linejoin: round;
+      pointer-events: none;
+    }
+
+    .node-group {
+      cursor: pointer;
+    }
+
+    .node {
+      stroke: rgba(255,255,255,.22);
+      stroke-width: 1.3;
+    }
+
+    .node.selected {
+      stroke: #f8fafc;
+      stroke-width: 3;
+    }
+
+    .node.entry {
+      stroke: #fde68a;
+      stroke-width: 3;
+    }
+
+    .node-label {
+      fill: var(--text);
+      font-size: 12px;
+      paint-order: stroke;
+      stroke: rgba(12,15,20,.88);
+      stroke-width: 4px;
+      stroke-linejoin: round;
+      pointer-events: auto;
+    }
+
+    .node-kind-label {
+      fill: var(--muted);
+      font-size: 10px;
+      paint-order: stroke;
+      stroke: rgba(12,15,20,.88);
+      stroke-width: 3px;
+      pointer-events: auto;
+    }
+
+    .canvas-state {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: min(520px, calc(100% - 48px));
+      transform: translate(-50%, -50%);
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(21,25,34,.92);
+      text-align: center;
+      z-index: 8;
+      box-shadow: 0 18px 60px rgba(0,0,0,.28);
+    }
+
+    .canvas-state.loading {
+      border-color: rgba(56,189,248,.45);
+    }
+
+    .canvas-state.error {
+      border-color: rgba(239,68,68,.55);
+    }
+
+    .canvas-state.empty {
+      border-color: rgba(245,158,11,.45);
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      margin-bottom: 10px;
+      border: 2px solid rgba(203,213,225,.22);
+      border-top-color: var(--accent);
+      border-radius: 999px;
+      animation: spin .8s linear infinite;
+    }
+
+    .state-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .state-actions button {
+      min-width: 124px;
+    }
+
+    .fact-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .fact {
+      min-width: 0;
+      padding: 8px 9px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel-2);
+    }
+
+    .fact .label {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.2;
+    }
+
+    .fact .value {
+      margin-top: 3px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .list-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    pre {
+      margin: 0;
+      padding: 12px;
+      overflow: auto;
+      max-height: 42vh;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel-3);
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 1100px) {
+      body {
+        height: auto;
+        min-height: 100vh;
+        overflow: auto;
+        display: block;
+      }
+
+      .panel, .panel.right {
+        border: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .canvas-wrap {
+        height: 70vh;
+      }
+
+      svg {
+        height: 70vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <aside class="panel">
+    <div class="section">
+      <h1>Topology Viewer</h1>
+      <div class="muted">Viewer version: __VIEWER_VERSION__</div>
+      <div class="muted">Inspect live Kubernetes ontology topology from the daemon, or load a diagnostic JSON file.</div>
+    </div>
+
+    <div class="section">
+      <h2>Live Server</h2>
+      <div class="field">
+        <label for="serverUrl">Ontology server</label>
+        <input id="serverUrl" type="text" value="__ONTOLOGY_SERVER__" />
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label for="namespaceInput">Namespace filter</label>
+          <input id="namespaceInput" type="text" placeholder="optional, e.g. default" />
+        </div>
+        <div class="field">
+          <label for="kindInput">Kind filter</label>
+          <select id="kindInput">
+            <option value="">All kinds</option>
+            <option>Workload</option>
+            <option>Pod</option>
+            <option>Service</option>
+            <option>Node</option>
+            <option>PVC</option>
+            <option>PV</option>
+            <option>StorageClass</option>
+            <option>CSIDriver</option>
+            <option>Event</option>
+            <option>ConfigMap</option>
+            <option>Secret</option>
+            <option>ServiceAccount</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label for="entityLimit">Entity limit</label>
+          <input id="entityLimit" type="number" min="1" value="1000" />
+        </div>
+        <div class="field">
+          <label for="relationLimit">Relation limit</label>
+          <input id="relationLimit" type="number" min="1" value="5000" />
+        </div>
+      </div>
+      <div class="row">
+        <button id="loadTopologyBtn" class="primary" style="flex:1">Load topology</button>
+        <button id="refreshBtn" style="flex:0 0 auto">Refresh</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label class="row" style="gap:6px">
+          <input id="autoRefresh" type="checkbox" />
+          <span class="muted">Auto refresh</span>
+        </label>
+        <input id="refreshSeconds" type="number" min="2" value="10" style="width:76px" />
+        <span class="muted">sec</span>
+      </div>
+      <div id="liveStatus" class="muted" style="margin-top:8px">Not connected.</div>
+    </div>
+
+    <div class="section">
+      <h2>Diagnostic Query</h2>
+      <div class="grid-2">
+        <div class="field">
+          <label for="diagnosticKind">Entry kind</label>
+          <select id="diagnosticKind">
+            <option>Pod</option>
+            <option>Workload</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="diagnosticNamespace">Namespace</label>
+          <input id="diagnosticNamespace" type="text" placeholder="default" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="diagnosticName">Name</label>
+        <input id="diagnosticName" type="text" placeholder="pod or workload name" />
+      </div>
+      <div class="field">
+        <label for="diagnosticTerminalKinds">Stop expanding at</label>
+        <input id="diagnosticTerminalKinds" type="text" placeholder="default" />
+      </div>
+      <label class="row" style="gap:6px;margin-bottom:10px">
+        <input id="expandTerminalNodes" type="checkbox" />
+        <span class="muted">Expand through stop nodes</span>
+      </label>
+      <button id="loadDiagnosticBtn" class="success" style="width:100%">Load diagnostic graph</button>
+    </div>
+
+    <div class="section">
+      <h2>Load JSON</h2>
+      <input id="fileInput" type="file" accept="application/json" />
+      <div style="height:8px"></div>
+      <input id="pathInput" type="text" placeholder="Optional file path, e.g. /tmp/pod-graph.json" />
+      <div style="height:8px"></div>
+      <button id="loadPathBtn" style="width:100%">Load path</button>
+      <div class="muted" style="margin-top:8px">Path loading needs <code>make visualize</code>. File picker and drag-and-drop also work.</div>
+    </div>
+
+    <div class="section">
+      <h2>Search</h2>
+      <input id="filterText" type="text" placeholder="kind / name / namespace / id / relation" />
+      <div id="searchResults" class="list" style="margin-top:10px"></div>
+    </div>
+
+    <div class="section">
+      <h2>Stats</h2>
+      <div class="stats">
+        <div class="stat"><div class="label">Nodes</div><div id="nodeCount" class="value">0</div></div>
+        <div class="stat"><div class="label">Edges</div><div id="edgeCount" class="value">0</div></div>
+        <div class="stat"><div class="label">Visible</div><div id="visibleCount" class="value">0</div></div>
+      </div>
+      <div id="entrySummary" class="muted" style="margin-top:10px"></div>
+    </div>
+
+    <div class="section">
+      <h2>Node Filters</h2>
+      <div class="filter-toolbar" aria-label="Node filter presets">
+        <button type="button" data-kind-preset="all">All</button>
+        <button type="button" data-kind-preset="core">Core</button>
+        <button type="button" data-kind-preset="storage">Storage</button>
+        <button type="button" data-kind-preset="identity">Identity</button>
+        <button type="button" data-kind-preset="evidence">Evidence</button>
+      </div>
+      <div id="kindFilters" class="kind-list"></div>
+    </div>
+
+    <div class="section">
+      <h2>Relation Filters</h2>
+      <div class="filter-toolbar" aria-label="Relation filter presets">
+        <button type="button" data-relation-preset="all">All</button>
+        <button type="button" data-relation-preset="signal">Signal</button>
+        <button type="button" data-relation-preset="none">None</button>
+      </div>
+      <div id="edgeFilters" class="kind-list"></div>
+    </div>
+  </aside>
+
+  <main class="canvas-wrap">
+    <div class="toolbar">
+      <button id="fitBtn">Fit</button>
+      <button id="focusEntryBtn">Entry</button>
+      <button id="focusSelectedBtn">Focus selected</button>
+      <button id="clearFocusBtn">Clear focus</button>
+      <button id="zoomInBtn">Zoom in</button>
+      <button id="zoomOutBtn">Zoom out</button>
+      <select id="layoutSelect" title="Layout">
+        <option value="auto">Auto layout</option>
+        <option value="kind">Kind columns</option>
+        <option value="distance">Entry distance</option>
+        <option value="radial">Radial</option>
+      </select>
+      <label><input id="showEdgeLabels" type="checkbox" /> Edge labels</label>
+      <button id="exportBtn" class="ghost">Export visible</button>
+    </div>
+
+    <div id="canvasState" class="canvas-state">
+      <div id="canvasSpinner" class="spinner hidden"></div>
+      <h3 id="canvasStateTitle">No topology loaded</h3>
+      <div id="canvasStateText" class="muted">Connect to the daemon or load a diagnostic JSON file.</div>
+      <div class="state-actions">
+        <button id="statePrimaryBtn" type="button" class="primary">Load topology</button>
+        <button id="stateDiagnosticBtn" type="button">Diagnostic query</button>
+        <button id="stateClearFiltersBtn" type="button" class="ghost hidden">Clear filters</button>
+      </div>
+    </div>
+
+    <svg id="graph" viewBox="0 0 1600 1000">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(203,213,225,.58)"></path>
+        </marker>
+      </defs>
+      <g id="graphViewport">
+        <g id="groupsLayer"></g>
+        <g id="edgesLayer"></g>
+        <g id="edgeLabelsLayer"></g>
+        <g id="nodesLayer"></g>
+      </g>
+    </svg>
+  </main>
+
+  <aside class="panel right">
+    <div class="section">
+      <h2>Selection</h2>
+      <div id="selectionHint" class="muted">Click a node or edge to inspect details.</div>
+      <div id="selectionMeta" class="hidden">
+        <div id="selectionTitle" class="item-title" style="font-size:16px"></div>
+        <div id="selectionChips" style="margin-top:6px"></div>
+        <div id="selectionFacts" class="fact-grid"></div>
+        <button id="expandSelectedBtn" class="success" style="width:100%;margin-top:10px">Expand 1 hop</button>
+        <button id="collapseSelectedBtn" class="ghost hidden" style="width:100%;margin-top:8px">Collapse 1 hop</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Connections</h2>
+      <div id="connectionsList" class="list">
+        <div class="muted">Select a node to see incoming and outgoing relations.</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Explanations</h2>
+      <div id="explanations" class="list"></div>
+    </div>
+
+    <div class="section">
+      <h2>Details</h2>
+      <pre id="detailsBox">No selection.</pre>
+    </div>
+  </aside>
+
+  <script>
+    const COLORS = {
+      Pod: css('--pod'),
+      Workload: css('--workload'),
+      Service: css('--service'),
+      Secret: css('--secret'),
+      ConfigMap: css('--configmap'),
+      PVC: css('--pvc'),
+      PV: css('--pv'),
+      StorageClass: css('--storageclass'),
+      CSIDriver: css('--csidriver'),
+      Event: css('--event'),
+      Node: css('--node'),
+      Image: css('--image'),
+      ServiceAccount: css('--serviceaccount'),
+      RoleBinding: css('--rbac'),
+      ClusterRoleBinding: css('--rbac'),
+      WebhookConfig: css('--webhook'),
+      default: css('--default')
+    };
+
+    const INTERESTING_RELATIONS = new Set([
+      'controlled_by',
+      'owns_pod',
+      'managed_by_controller',
+      'served_by_node_daemon',
+      'scheduled_on',
+      'selects_pod',
+      'mounts_pvc',
+      'bound_to_pv',
+      'uses_storage_class',
+      'provisioned_by_csi_driver',
+      'implemented_by_csi_controller',
+      'implemented_by_csi_node_agent',
+      'managed_by_csi_controller',
+      'served_by_csi_node_agent',
+      'reported_by_event',
+      'affected_by_webhook'
+    ]);
+
+    const KIND_PRESETS = {
+      core: ['Workload', 'Pod', 'Service', 'Node'],
+      storage: ['PVC', 'PV', 'StorageClass', 'CSIDriver'],
+      identity: ['ServiceAccount', 'RoleBinding', 'ClusterRoleBinding'],
+      evidence: ['Event', 'WebhookConfig', 'ConfigMap', 'Secret']
+    };
+
+    const TOPOLOGY_FETCH_TIMEOUT_MS = 95000;
+    const DIAGNOSTIC_FETCH_TIMEOUT_MS = 35000;
+
+    const state = {
+      data: null,
+      normalized: null,
+      visibleKinds: new Set(),
+      visibleEdgeKinds: new Set(),
+      filterText: '',
+      selectedNodeId: null,
+      selectedEdgeKey: null,
+      focusedNodeId: null,
+      positions: new Map(),
+      highlightNodeIds: new Set(),
+      highlightEdgeKeys: new Set(),
+      panX: 0,
+      panY: 0,
+      scale: 1,
+      layoutMode: 'auto',
+      showEdgeLabels: false,
+      diagnosticMaxDepth: '2',
+      diagnosticStorageMaxDepth: '5',
+      baseGraph: null,
+      expansionLayers: [],
+      lastLoader: null,
+      refreshTimer: null,
+      loadState: 'idle',
+      loadTitle: '',
+      loadMessage: '',
+      isPanning: false,
+      lastVisible: { nodes: [], edges: [] }
+    };
+
+    const filterControls = {
+      kind: new Map(),
+      edge: new Map()
+    };
+
+    const el = {
+      serverUrl: document.getElementById('serverUrl'),
+      namespaceInput: document.getElementById('namespaceInput'),
+      kindInput: document.getElementById('kindInput'),
+      entityLimit: document.getElementById('entityLimit'),
+      relationLimit: document.getElementById('relationLimit'),
+      autoRefresh: document.getElementById('autoRefresh'),
+      refreshSeconds: document.getElementById('refreshSeconds'),
+      loadTopologyBtn: document.getElementById('loadTopologyBtn'),
+      refreshBtn: document.getElementById('refreshBtn'),
+      liveStatus: document.getElementById('liveStatus'),
+      diagnosticKind: document.getElementById('diagnosticKind'),
+      diagnosticNamespace: document.getElementById('diagnosticNamespace'),
+      diagnosticName: document.getElementById('diagnosticName'),
+      diagnosticTerminalKinds: document.getElementById('diagnosticTerminalKinds'),
+      expandTerminalNodes: document.getElementById('expandTerminalNodes'),
+      loadDiagnosticBtn: document.getElementById('loadDiagnosticBtn'),
+      expandSelectedBtn: document.getElementById('expandSelectedBtn'),
+      fileInput: document.getElementById('fileInput'),
+      pathInput: document.getElementById('pathInput'),
+      loadPathBtn: document.getElementById('loadPathBtn'),
+      filterText: document.getElementById('filterText'),
+      searchResults: document.getElementById('searchResults'),
+      fitBtn: document.getElementById('fitBtn'),
+      focusEntryBtn: document.getElementById('focusEntryBtn'),
+      focusSelectedBtn: document.getElementById('focusSelectedBtn'),
+      clearFocusBtn: document.getElementById('clearFocusBtn'),
+      zoomInBtn: document.getElementById('zoomInBtn'),
+      zoomOutBtn: document.getElementById('zoomOutBtn'),
+      layoutSelect: document.getElementById('layoutSelect'),
+      showEdgeLabels: document.getElementById('showEdgeLabels'),
+      exportBtn: document.getElementById('exportBtn'),
+      nodeCount: document.getElementById('nodeCount'),
+      edgeCount: document.getElementById('edgeCount'),
+      visibleCount: document.getElementById('visibleCount'),
+      entrySummary: document.getElementById('entrySummary'),
+      kindFilters: document.getElementById('kindFilters'),
+      edgeFilters: document.getElementById('edgeFilters'),
+      explanations: document.getElementById('explanations'),
+      selectionHint: document.getElementById('selectionHint'),
+      selectionMeta: document.getElementById('selectionMeta'),
+      selectionTitle: document.getElementById('selectionTitle'),
+      selectionChips: document.getElementById('selectionChips'),
+      selectionFacts: document.getElementById('selectionFacts'),
+      collapseSelectedBtn: document.getElementById('collapseSelectedBtn'),
+      connectionsList: document.getElementById('connectionsList'),
+      detailsBox: document.getElementById('detailsBox'),
+      canvasState: document.getElementById('canvasState'),
+      canvasSpinner: document.getElementById('canvasSpinner'),
+      canvasStateTitle: document.getElementById('canvasStateTitle'),
+      canvasStateText: document.getElementById('canvasStateText'),
+      statePrimaryBtn: document.getElementById('statePrimaryBtn'),
+      stateDiagnosticBtn: document.getElementById('stateDiagnosticBtn'),
+      stateClearFiltersBtn: document.getElementById('stateClearFiltersBtn'),
+      svg: document.getElementById('graph'),
+      graphViewport: document.getElementById('graphViewport'),
+      groupsLayer: document.getElementById('groupsLayer'),
+      edgesLayer: document.getElementById('edgesLayer'),
+      edgeLabelsLayer: document.getElementById('edgeLabelsLayer'),
+      nodesLayer: document.getElementById('nodesLayer'),
+      canvasWrap: document.querySelector('.canvas-wrap')
+    };
+
+    let isPanning = false;
+    let panStart = null;
+    let nodeClickTimer = null;
+
+    hydrateFromQuery();
+    wireEvents();
+    renderCanvasState();
+
+    function css(name) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+
+    function hydrateFromQuery() {
+      const params = new URLSearchParams(window.location.search);
+      if (el.serverUrl.value === '__ONTOLOGY_SERVER__') el.serverUrl.value = 'http://127.0.0.1:18080';
+      if (params.get('server')) el.serverUrl.value = params.get('server');
+      if (params.get('namespace')) {
+        el.namespaceInput.value = params.get('namespace');
+        el.diagnosticNamespace.value = params.get('namespace');
+      }
+      if (params.get('kind')) {
+        el.kindInput.value = params.get('kind');
+        setDiagnosticKind(params.get('kind'));
+      }
+      setDiagnosticKind(params.get('diagnosticKind') || params.get('entryKind'));
+      if (params.get('name')) el.diagnosticName.value = params.get('name');
+      if (params.get('maxDepth')) state.diagnosticMaxDepth = params.get('maxDepth');
+      if (params.get('storageMaxDepth')) state.diagnosticStorageMaxDepth = params.get('storageMaxDepth');
+      if (params.get('terminalKinds')) el.diagnosticTerminalKinds.value = params.get('terminalKinds');
+      if (params.get('expandTerminalNodes')) el.expandTerminalNodes.checked = params.get('expandTerminalNodes') === 'true';
+      if (params.get('file')) loadFromPath(params.get('file')).catch(showLoadError);
+      if (params.get('diagnostic') === '1') loadDiagnosticFromServer().catch(showLoadError);
+    }
+
+    function wireEvents() {
+      el.loadTopologyBtn.addEventListener('click', () => loadTopology().catch(showLoadError));
+      el.refreshBtn.addEventListener('click', () => refreshLast().catch(showLoadError));
+      el.loadDiagnosticBtn.addEventListener('click', () => loadDiagnosticFromServer().catch(showLoadError));
+      el.expandSelectedBtn.addEventListener('click', () => expandSelectedNode().catch(showLoadError));
+      el.collapseSelectedBtn.addEventListener('click', collapseSelectedNode);
+      el.statePrimaryBtn.addEventListener('click', () => refreshLast().catch(showLoadError));
+      el.stateDiagnosticBtn.addEventListener('click', focusDiagnosticForm);
+      el.stateClearFiltersBtn.addEventListener('click', clearFocusedFilters);
+      el.autoRefresh.addEventListener('change', scheduleRefresh);
+      el.refreshSeconds.addEventListener('change', scheduleRefresh);
+      el.fileInput.addEventListener('change', (event) => loadFile(event).catch(showLoadError));
+      el.loadPathBtn.addEventListener('click', () => loadFromPath(el.pathInput.value).catch(showLoadError));
+      el.filterText.addEventListener('input', () => {
+        state.filterText = el.filterText.value.toLowerCase().trim();
+        render();
+      });
+      el.fitBtn.addEventListener('click', fitToView);
+      el.focusEntryBtn.addEventListener('click', focusEntry);
+      el.focusSelectedBtn.addEventListener('click', focusSelected);
+      el.clearFocusBtn.addEventListener('click', clearFocus);
+      el.zoomInBtn.addEventListener('click', () => zoomBy(1.16));
+      el.zoomOutBtn.addEventListener('click', () => zoomBy(0.86));
+      el.layoutSelect.addEventListener('change', () => {
+        state.layoutMode = el.layoutSelect.value;
+        render();
+        fitToView();
+      });
+      el.showEdgeLabels.addEventListener('change', () => {
+        state.showEdgeLabels = el.showEdgeLabels.checked;
+        render();
+      });
+      el.exportBtn.addEventListener('click', exportVisible);
+      document.querySelectorAll('[data-kind-preset]').forEach((button) => {
+        button.addEventListener('click', () => applyKindPreset(button.dataset.kindPreset));
+      });
+      document.querySelectorAll('[data-relation-preset]').forEach((button) => {
+        button.addEventListener('click', () => applyRelationPreset(button.dataset.relationPreset));
+      });
+      document.addEventListener('dragover', (event) => event.preventDefault());
+      document.addEventListener('drop', (event) => dropFile(event).catch(showLoadError));
+      wirePanZoom();
+    }
+
+    async function loadTopology() {
+      const server = el.serverUrl.value.trim();
+      if (!server) throw new Error('Ontology server URL is required.');
+      const params = new URLSearchParams({
+        server,
+        entityLimit: el.entityLimit.value || '1000',
+        relationLimit: el.relationLimit.value || '5000'
+      });
+      if (el.namespaceInput.value.trim()) params.set('namespace', el.namespaceInput.value.trim());
+      if (el.kindInput.value.trim()) params.set('kind', el.kindInput.value.trim());
+      state.lastLoader = loadTopology;
+      setBusy(true);
+      setCanvasState('loading', 'Loading topology', 'Reading entities and relations from the daemon.');
+      setLiveStatus('Loading topology...', 'warn');
+      try {
+        const data = await fetchJSON('/topology?' + params.toString(), { timeoutMs: TOPOLOGY_FETCH_TIMEOUT_MS });
+        loadData(data, 'live topology');
+        const status = data.status || {};
+        const cluster = statusValue(status, 'cluster') || 'server';
+        const phase = statusValue(status, 'phase');
+        const ready = statusValue(status, 'ready');
+        setLiveStatus(`${cluster} ${phase || ''} - refreshed ${new Date().toLocaleTimeString()}`, ready === false ? 'warn' : 'ready');
+        scheduleRefresh();
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function loadDiagnosticFromServer() {
+      const server = el.serverUrl.value.trim();
+      if (!server) throw new Error('Ontology server URL is required.');
+      const namespace = el.diagnosticNamespace.value.trim();
+      const name = el.diagnosticName.value.trim();
+      if (!namespace) throw new Error('Namespace is required to load a diagnostic graph.');
+      if (!name) throw new Error('Name is required to load a diagnostic graph.');
+      const params = new URLSearchParams({
+        server,
+        kind: el.diagnosticKind.value,
+        namespace,
+        name,
+        maxDepth: state.diagnosticMaxDepth,
+        storageMaxDepth: state.diagnosticStorageMaxDepth
+      });
+      const terminalKinds = el.diagnosticTerminalKinds.value.trim();
+      if (terminalKinds) params.set('terminalKinds', terminalKinds);
+      if (el.expandTerminalNodes.checked) params.set('expandTerminalNodes', 'true');
+      state.lastLoader = loadDiagnosticFromServer;
+      setBusy(true);
+      setCanvasState('loading', 'Loading diagnostic graph', `${el.diagnosticKind.value} ${namespace}/${name}`);
+      setLiveStatus('Loading diagnostic graph...', 'warn');
+      try {
+        const data = await fetchJSON('/diagnostic?' + params.toString(), { timeoutMs: DIAGNOSTIC_FETCH_TIMEOUT_MS });
+        loadData(data, 'diagnostic query');
+        setLiveStatus(`Diagnostic graph refreshed ${new Date().toLocaleTimeString()}`, 'ready');
+        scheduleRefresh();
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function refreshLast() {
+      if (!state.lastLoader) {
+        await loadTopology();
+        return;
+      }
+      await state.lastLoader();
+    }
+
+    async function expandSelectedNode() {
+      if (!state.selectedNodeId) throw new Error('Select a node before expanding.');
+      await expandNode(state.selectedNodeId, 1);
+    }
+
+    function collapseSelectedNode() {
+      if (!state.selectedNodeId) {
+        showLoadError(new Error('Select an expanded node before collapsing.'));
+        return;
+      }
+      collapseNode(state.selectedNodeId);
+    }
+
+    async function expandNode(entityId, depth = 1) {
+      if (!state.normalized) throw new Error('Load a graph before expanding a node.');
+      const params = new URLSearchParams({
+        server: el.serverUrl.value.trim(),
+        entityGlobalId: entityId,
+        depth: String(depth),
+        direction: 'both',
+        limit: '300'
+      });
+      setLiveStatus('Expanding node...', 'warn');
+      setBusy(true);
+      try {
+        const data = await fetchJSON('/expand?' + params.toString(), { timeoutMs: TOPOLOGY_FETCH_TIMEOUT_MS });
+        mergeGraph(data, `expanded ${shortLabel(entityId, 42)}`, {
+          expandedFrom: entityId,
+          depth,
+          direction: 'both',
+          limit: 300
+        });
+        state.selectedNodeId = entityId;
+        state.selectedEdgeKey = null;
+        state.focusedNodeId = entityId;
+        render();
+        fitToView();
+        setLiveStatus(`Expanded node ${new Date().toLocaleTimeString()}`, 'ready');
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function collapseNode(entityId) {
+      if (!isNodeExpanded(entityId)) {
+        showLoadError(new Error('Selected node has no expanded layer to collapse.'));
+        return;
+      }
+      state.expansionLayers = state.expansionLayers.filter((layer) => layer.expandedFrom !== entityId);
+      recomposeGraph();
+      if (!nodeMapFor(state.normalized?.nodes || []).has(entityId)) {
+        state.selectedNodeId = null;
+        state.focusedNodeId = null;
+      } else {
+        state.selectedNodeId = entityId;
+        state.focusedNodeId = entityId;
+      }
+      state.selectedEdgeKey = null;
+      render();
+      fitToView();
+      setLiveStatus(`Collapsed node ${new Date().toLocaleTimeString()}`, 'ready');
+    }
+
+    async function fetchJSON(url, options = {}) {
+      const timeoutMs = options.timeoutMs || TOPOLOGY_FETCH_TIMEOUT_MS;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
+        const text = await response.text();
+        let data = {};
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch (_) {
+            throw new Error(`Expected JSON from ${url}, got HTTP ${response.status}.`);
+          }
+        }
+        if (!response.ok) {
+          throw new Error(data.error || `${response.status} ${response.statusText}`);
+        }
+        return data;
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          throw new Error(`Request timed out after ${Math.round(timeoutMs / 1000)}s. Check the ontology server URL and daemon readiness.`);
+        }
+        throw error;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    function setDiagnosticKind(value) {
+      const normalized = String(value || '').toLowerCase();
+      if (normalized === 'pod') el.diagnosticKind.value = 'Pod';
+      if (normalized === 'workload') el.diagnosticKind.value = 'Workload';
+    }
+
+    function scheduleRefresh() {
+      if (state.refreshTimer) {
+        clearInterval(state.refreshTimer);
+        state.refreshTimer = null;
+      }
+      if (!el.autoRefresh.checked || !state.lastLoader) return;
+      const seconds = Math.max(2, Number(el.refreshSeconds.value || 10));
+      state.refreshTimer = setInterval(() => {
+        state.lastLoader().catch(showLoadError);
+      }, seconds * 1000);
+    }
+
+    function setCanvasState(kind, title, message) {
+      state.loadState = kind || 'idle';
+      state.loadMessage = message || '';
+      state.loadTitle = title || '';
+      renderCanvasState();
+    }
+
+    function renderCanvasState(graph = state.normalized, visibleNodes = state.lastVisible.nodes) {
+      const hasGraph = !!graph;
+      const filteredEmpty = hasGraph && Array.isArray(visibleNodes) && visibleNodes.length === 0;
+      let stateKind = state.loadState;
+      let title = state.loadTitle;
+      let text = state.loadMessage;
+
+      if (stateKind === 'loading') {
+        title = title || 'Loading';
+        text = text || 'Waiting for the daemon.';
+      } else if (stateKind === 'error') {
+        title = title || 'Load failed';
+        text = text || 'The viewer could not load data.';
+      } else if (hasGraph && graph.nodes.length === 0) {
+        stateKind = 'empty';
+        title = 'No nodes returned';
+        text = state.loadMessage || 'The response did not include any entities.';
+      } else if (filteredEmpty) {
+        stateKind = 'empty';
+        title = 'No visible nodes';
+        text = 'The loaded graph is hidden by filters or focus.';
+      } else if (!hasGraph) {
+        stateKind = 'idle';
+        title = 'No topology loaded';
+        text = 'Connect to the daemon or load a diagnostic JSON file.';
+      } else {
+        el.canvasState.classList.add('hidden');
+        return;
+      }
+
+      el.canvasState.className = `canvas-state ${stateKind || 'idle'}`;
+      el.canvasSpinner.classList.toggle('hidden', stateKind !== 'loading');
+      el.canvasStateTitle.textContent = title;
+      el.canvasStateText.textContent = text;
+      el.statePrimaryBtn.textContent = state.lastLoader ? 'Retry' : 'Load topology';
+      el.statePrimaryBtn.classList.toggle('hidden', stateKind === 'loading');
+      el.stateDiagnosticBtn.classList.toggle('hidden', stateKind === 'loading');
+      el.stateClearFiltersBtn.classList.toggle('hidden', !filteredEmpty);
+    }
+
+    function setBusy(isBusy) {
+      [
+        el.loadTopologyBtn,
+        el.refreshBtn,
+        el.loadDiagnosticBtn,
+        el.expandSelectedBtn,
+        el.collapseSelectedBtn,
+        el.statePrimaryBtn
+      ].forEach((button) => {
+        button.disabled = !!isBusy;
+      });
+    }
+
+    function setLiveStatus(message, tone = '') {
+      const dotClass = tone ? ` ${tone}` : '';
+      el.liveStatus.innerHTML = `<span class="pill"><span class="dot${dotClass}"></span>${escapeHtml(message)}</span>`;
+    }
+
+    function showLoadError(error) {
+      const message = error.message || String(error);
+      setLiveStatus(message, 'bad');
+      setCanvasState('error', 'Load failed', message);
+      setBusy(false);
+    }
+
+    async function loadFromPath(raw) {
+      const value = (raw || '').trim();
+      if (!value) return;
+      el.pathInput.value = value;
+      setCanvasState('loading', 'Loading JSON', value);
+      try {
+        const data = await fetchJSON(`/load?path=${encodeURIComponent(value)}`);
+        state.lastLoader = null;
+        loadData(data, value);
+      } catch (error) {
+        throw new Error(`Failed to load path: ${error.message}`);
+      }
+    }
+
+    async function loadFile(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      setCanvasState('loading', 'Loading JSON', file.name);
+      const text = await file.text();
+      state.lastLoader = null;
+      el.pathInput.value = file.name;
+      loadData(JSON.parse(text), file.name);
+    }
+
+    async function dropFile(event) {
+      event.preventDefault();
+      const file = event.dataTransfer?.files?.[0];
+      if (!file) return;
+      setCanvasState('loading', 'Loading JSON', file.name);
+      const text = await file.text();
+      state.lastLoader = null;
+      el.pathInput.value = file.name;
+      loadData(JSON.parse(text), file.name);
+    }
+
+    function loadData(raw, sourceLabel) {
+      const normalized = normalizeGraph(raw?.baseGraph || raw, sourceLabel);
+      state.data = raw;
+      state.baseGraph = normalized;
+      state.expansionLayers = restoreExpansionLayers(raw);
+      recomposeGraph();
+      state.selectedNodeId = null;
+      state.selectedEdgeKey = null;
+      state.focusedNodeId = state.normalized.mode === 'topology' ? (state.normalized.entry?.canonicalId || null) : null;
+      setCanvasState(state.normalized.nodes.length ? 'ready' : 'empty', '', state.normalized.nodes.length ? '' : 'The response contained no nodes.');
+      initializeFilters(state.normalized);
+      render();
+      fitToView();
+    }
+
+    function mergeGraph(raw, sourceLabel, layerOptions = {}) {
+      const addition = normalizeGraph(raw, sourceLabel);
+      if (!state.normalized) {
+        loadData(raw, sourceLabel);
+        return;
+      }
+      const layer = {
+        ...addition,
+        expandedFrom: layerOptions.expandedFrom || addition.entry?.canonicalId || '',
+        depth: layerOptions.depth || 1,
+        direction: layerOptions.direction || 'both',
+        limit: layerOptions.limit || 300
+      };
+      state.expansionLayers = state.expansionLayers
+        .filter((item) => item.expandedFrom !== layer.expandedFrom)
+        .concat(layer);
+      recomposeGraph();
+      initializeFilters(state.normalized, true);
+    }
+
+    function restoreExpansionLayers(raw) {
+      if (!Array.isArray(raw?.expansions)) return [];
+      return raw.expansions
+        .map((layer) => ({
+          ...normalizeGraph(layer, layer.source || `expanded ${shortLabel(layer.expandedFrom || '', 42)}`),
+          expandedFrom: String(layer.expandedFrom || layer.entry?.canonicalId || ''),
+          depth: Number(layer.depth || 1),
+          direction: layer.direction || 'both',
+          limit: Number(layer.limit || 300)
+        }))
+        .filter((layer) => layer.expandedFrom);
+    }
+
+    function recomposeGraph() {
+      if (!state.baseGraph) {
+        state.normalized = null;
+        return;
+      }
+      const nodeById = nodeMapFor(state.baseGraph.nodes);
+      const edgeByKey = new Map(state.baseGraph.edges.map((edge) => [edgeKey(edge), edge]));
+      const explanations = [...(state.baseGraph.explanation || [])];
+      let collectedAt = state.baseGraph.collectedAt;
+      for (const layer of state.expansionLayers) {
+        for (const node of layer.nodes || []) {
+          nodeById.set(node.canonicalId, node);
+        }
+        for (const edge of layer.edges || []) {
+          edgeByKey.set(edgeKey(edge), edge);
+        }
+        explanations.push(...(layer.explanation || []));
+        collectedAt = layer.collectedAt || collectedAt;
+      }
+      state.normalized = {
+        ...state.baseGraph,
+        nodes: [...nodeById.values()].sort(compareNode),
+        edges: [...edgeByKey.values()].sort((a, b) => edgeKey(a).localeCompare(edgeKey(b))),
+        collectedAt,
+        explanation: explanations.slice(-40)
+      };
+    }
+
+    function isNodeExpanded(entityId) {
+      return state.expansionLayers.some((layer) => layer.expandedFrom === entityId);
+    }
+
+    function normalizeGraph(raw, sourceLabel = '') {
+      if (raw?.entities?.items || raw?.relations?.items) {
+        const nodes = (raw.entities?.items || []).map((entity) => ({
+          canonicalId: String(entity.entityGlobalId || entity.id || ''),
+          kind: entity.kind || 'Unknown',
+          sourceKind: entity.sourceKind || '',
+          namespace: entity.namespace || '',
+          name: entity.name || String(entity.entityGlobalId || ''),
+          attributes: entity.attributes || {},
+          raw: entity
+        })).filter((node) => node.canonicalId);
+        const edges = (raw.relations?.items || []).map(normalizeRelation).filter((edge) => edge.from && edge.to);
+        const cluster = statusValue(raw.status, 'cluster') || raw.server || 'ontology';
+        return {
+          source: sourceLabel,
+          mode: 'topology',
+          status: raw.status || {},
+          entry: { kind: 'Topology', name: cluster, canonicalId: '' },
+          nodes,
+          edges,
+          collectedAt: new Date().toISOString(),
+          explanation: [`Loaded ${nodes.length} entities and ${edges.length} relations from ${raw.server || 'server'}.`]
+        };
+      }
+
+      const nodes = (raw?.nodes || []).map((node) => ({
+        canonicalId: String(node.canonicalId || node.entityGlobalId || node.id || ''),
+        kind: node.kind || 'Unknown',
+        sourceKind: node.sourceKind || '',
+        namespace: node.namespace || '',
+        name: node.name || String(node.canonicalId || node.entityGlobalId || ''),
+        attributes: node.attributes || {},
+        raw: node
+      })).filter((node) => node.canonicalId);
+      const edges = (raw?.edges || []).map(normalizeRelation).filter((edge) => edge.from && edge.to);
+      return {
+        source: sourceLabel,
+        mode: 'diagnostic',
+        entry: raw?.entry || {},
+        nodes,
+        edges,
+        collectedAt: raw?.collectedAt || '',
+        explanation: raw?.explanation || []
+      };
+    }
+
+    function normalizeRelation(edge) {
+      const provenance = edge.provenance || {};
+      return {
+        from: String(edge.from || ''),
+        to: String(edge.to || ''),
+        kind: edge.kind || 'related_to',
+        provenance: {
+          sourceType: provenance.sourceType || provenance.SourceType || '',
+          state: provenance.state || provenance.State || '',
+          resolver: provenance.resolver || provenance.Resolver || '',
+          lastSeenAt: provenance.lastSeenAt || provenance.LastSeenAt || '',
+          confidence: provenance.confidence ?? provenance.Confidence ?? null
+        },
+        raw: edge
+      };
+    }
+
+    function initializeFilters(graph, preserve = false) {
+      const previousKinds = new Set(filterControls.kind.keys());
+      const previousVisibleKinds = new Set(state.visibleKinds);
+      const previousEdges = new Set(filterControls.edge.keys());
+      const previousVisibleEdges = new Set(state.visibleEdgeKinds);
+      const showNewKinds = !preserve || previousVisibleKinds.size === previousKinds.size;
+      const showNewEdges = !preserve || previousVisibleEdges.size === previousEdges.size;
+      const kindCounts = countBy(graph.nodes, (node) => node.kind);
+      state.visibleKinds = new Set([...kindCounts.keys()].sort().filter((kind) =>
+        !preserve || previousVisibleKinds.has(kind) || (showNewKinds && !previousKinds.has(kind))
+      ));
+      filterControls.kind.clear();
+      el.kindFilters.innerHTML = '';
+      for (const kind of [...kindCounts.keys()].sort()) {
+        const row = document.createElement('label');
+        row.className = 'kind-row';
+        row.innerHTML = `
+          <input type="checkbox" checked />
+          <span class="swatch" style="background:${colorFor(kind)}"></span>
+          <span>${escapeHtml(kind)}</span>
+          <span class="count">${kindCounts.get(kind)}</span>
+        `;
+        const checkbox = row.querySelector('input');
+        checkbox.addEventListener('change', () => {
+          checkbox.checked ? state.visibleKinds.add(kind) : state.visibleKinds.delete(kind);
+          render();
+        });
+        filterControls.kind.set(kind, checkbox);
+        el.kindFilters.appendChild(row);
+      }
+
+      const edgeCounts = countBy(graph.edges, (edge) => edge.kind);
+      state.visibleEdgeKinds = new Set([...edgeCounts.keys()].sort().filter((kind) =>
+        !preserve || previousVisibleEdges.has(kind) || (showNewEdges && !previousEdges.has(kind))
+      ));
+      filterControls.edge.clear();
+      el.edgeFilters.innerHTML = '';
+      for (const kind of [...edgeCounts.keys()].sort()) {
+        const row = document.createElement('label');
+        row.className = 'kind-row';
+        row.innerHTML = `
+          <input type="checkbox" checked />
+          <span class="swatch" style="background:${relationColor(kind)}"></span>
+          <span>${escapeHtml(kind)}</span>
+          <span class="count">${edgeCounts.get(kind)}</span>
+        `;
+        const checkbox = row.querySelector('input');
+        checkbox.addEventListener('change', () => {
+          checkbox.checked ? state.visibleEdgeKinds.add(kind) : state.visibleEdgeKinds.delete(kind);
+          render();
+        });
+        filterControls.edge.set(kind, checkbox);
+        el.edgeFilters.appendChild(row);
+      }
+    }
+
+    function applyKindPreset(preset) {
+      if (!state.normalized) return;
+      const available = new Set(filterControls.kind.keys());
+      if (preset === 'all') {
+        state.visibleKinds = new Set(available);
+      } else {
+        state.visibleKinds = new Set((KIND_PRESETS[preset] || []).filter((kind) => available.has(kind)));
+      }
+      syncFilterControls();
+      render();
+      fitToView();
+    }
+
+    function applyRelationPreset(preset) {
+      if (!state.normalized) return;
+      const available = new Set(filterControls.edge.keys());
+      if (preset === 'all') {
+        state.visibleEdgeKinds = new Set(available);
+      } else if (preset === 'signal') {
+        state.visibleEdgeKinds = new Set([...available].filter((kind) => INTERESTING_RELATIONS.has(kind)));
+      } else {
+        state.visibleEdgeKinds = new Set();
+      }
+      syncFilterControls();
+      render();
+      fitToView();
+    }
+
+    function clearFocusedFilters() {
+      if (!state.normalized) return;
+      state.filterText = '';
+      el.filterText.value = '';
+      state.focusedNodeId = null;
+      state.visibleKinds = new Set(filterControls.kind.keys());
+      state.visibleEdgeKinds = new Set(filterControls.edge.keys());
+      syncFilterControls();
+      render();
+      fitToView();
+    }
+
+    function syncFilterControls() {
+      for (const [kind, checkbox] of filterControls.kind) checkbox.checked = state.visibleKinds.has(kind);
+      for (const [kind, checkbox] of filterControls.edge) checkbox.checked = state.visibleEdgeKinds.has(kind);
+    }
+
+    function focusDiagnosticForm() {
+      el.diagnosticName.focus();
+      el.diagnosticName.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+
+    function render() {
+      const graph = state.normalized;
+      if (!graph) {
+        renderCanvasState(null, []);
+        return;
+      }
+
+      const nodeMap = nodeMapFor(graph.nodes);
+      const kindVisibleNodes = graph.nodes.filter((node) => state.visibleKinds.has(node.kind));
+      let nodes = kindVisibleNodes;
+      let nodeIds = new Set(nodes.map((node) => node.canonicalId));
+      let edges = graph.edges.filter((edge) =>
+        state.visibleEdgeKinds.has(edge.kind) &&
+        nodeIds.has(edge.from) &&
+        nodeIds.has(edge.to)
+      );
+
+      if (state.filterText) {
+        const matchedNodeIds = new Set(
+          kindVisibleNodes
+            .filter((node) => nodeHaystack(node).includes(state.filterText))
+            .map((node) => node.canonicalId)
+        );
+        const matchedEdges = edges.filter((edge) => edgeVisibleByText(edge, nodeMap));
+        for (const edge of matchedEdges) {
+          matchedNodeIds.add(edge.from);
+          matchedNodeIds.add(edge.to);
+        }
+        nodes = kindVisibleNodes.filter((node) => matchedNodeIds.has(node.canonicalId));
+        nodeIds = new Set(nodes.map((node) => node.canonicalId));
+        edges = edges.filter((edge) =>
+          nodeIds.has(edge.from) &&
+          nodeIds.has(edge.to) &&
+          edgeVisibleByText(edge, nodeMap)
+        );
+      }
+
+      if (state.focusedNodeId) {
+        const keep = collectNeighborhood(graph.edges, state.focusedNodeId, 2);
+        nodes = nodes.filter((node) => keep.has(node.canonicalId));
+        nodeIds = new Set(nodes.map((node) => node.canonicalId));
+        edges = edges.filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to));
+      }
+
+      state.lastVisible = { nodes, edges };
+      renderCanvasState(graph, nodes);
+      computeHighlights(edges);
+      el.nodeCount.textContent = String(graph.nodes.length);
+      el.edgeCount.textContent = String(graph.edges.length);
+      el.visibleCount.textContent = String(nodes.length);
+      el.entrySummary.innerHTML = renderSummary(graph);
+      renderExplanations(graph.explanation || []);
+      renderSearchResults(nodes);
+      renderGraph(nodes, edges);
+      renderSelection(nodes, edges);
+    }
+
+    function renderSummary(graph) {
+      const entry = graph.entry || {};
+      const parts = [];
+      if (graph.mode === 'topology') parts.push(`Topology: ${escapeHtml(entry.name || 'ontology')}`);
+      else parts.push(`${escapeHtml(entry.kind || 'Entry')} ${escapeHtml([entry.namespace, entry.name].filter(Boolean).join('/') || entry.canonicalId || '')}`);
+      if (graph.collectedAt) parts.push(`Collected: ${escapeHtml(String(graph.collectedAt))}`);
+      const phase = statusValue(graph.status, 'phase');
+      if (phase) parts.push(`Runtime: ${escapeHtml(phase)}`);
+      return parts.map((part) => `<span class="pill">${part}</span>`).join('');
+    }
+
+    function edgeVisibleByText(edge, nodeMap) {
+      if (!state.filterText) return true;
+      const from = nodeMap.get(edge.from);
+      const to = nodeMap.get(edge.to);
+      const hay = [
+        edge.kind,
+        edge.from,
+        edge.to,
+        edge.provenance?.sourceType,
+        edge.provenance?.state,
+        edge.provenance?.resolver,
+        from ? nodeHaystack(from) : '',
+        to ? nodeHaystack(to) : ''
+      ].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(state.filterText);
+    }
+
+    function nodeHaystack(node) {
+      return [
+        node.kind,
+        node.sourceKind,
+        node.namespace,
+        node.name,
+        node.canonicalId,
+        JSON.stringify(node.attributes || {})
+      ].filter(Boolean).join(' ').toLowerCase();
+    }
+
+    function renderSearchResults(nodes) {
+      el.searchResults.innerHTML = '';
+      if (!state.filterText) {
+        el.searchResults.innerHTML = '<div class="muted">Type to find nodes or relations.</div>';
+        return;
+      }
+      const results = nodes.slice(0, 20);
+      if (!results.length) {
+        el.searchResults.innerHTML = '<div class="muted">No matching nodes.</div>';
+        return;
+      }
+      for (const node of results) {
+        const item = document.createElement('div');
+        item.className = 'item clickable';
+        item.innerHTML = `<div class="item-title">${escapeHtml(node.name || node.canonicalId)}</div><div class="item-subtitle">${escapeHtml(node.kind)} ${escapeHtml(node.namespace || 'cluster-scoped')}</div>`;
+        item.addEventListener('click', () => {
+          state.selectedNodeId = node.canonicalId;
+          state.selectedEdgeKey = null;
+          render();
+        });
+        el.searchResults.appendChild(item);
+      }
+    }
+
+    function renderExplanations(items) {
+      el.explanations.innerHTML = '';
+      if (!items.length) {
+        el.explanations.innerHTML = '<div class="muted">No explanations.</div>';
+        return;
+      }
+      for (const item of items.slice(0, 20)) {
+        const div = document.createElement('div');
+        div.className = 'item';
+        div.textContent = item;
+        el.explanations.appendChild(div);
+      }
+    }
+
+    function renderGraph(nodes, edges) {
+      el.groupsLayer.innerHTML = '';
+      el.edgesLayer.innerHTML = '';
+      el.edgeLabelsLayer.innerHTML = '';
+      el.nodesLayer.innerHTML = '';
+      const positions = computeLayout(nodes, edges);
+      state.positions = positions;
+      renderGroups(nodes, edges, positions);
+      const denseGraph = nodes.length > 180;
+
+      for (const edge of edges) {
+        const from = positions.get(edge.from);
+        const to = positions.get(edge.to);
+        if (!from || !to) continue;
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const classes = ['edge'];
+        const key = edgeKey(edge);
+        if (state.selectedEdgeKey === key) classes.push('selected');
+        else if (state.highlightEdgeKeys.has(key)) classes.push('highlight');
+        else if (state.highlightEdgeKeys.size || state.selectedNodeId) classes.push('dimmed');
+        path.setAttribute('class', classes.join(' '));
+        path.setAttribute('d', curvedPath(from.x, from.y, to.x, to.y));
+        path.addEventListener('pointerdown', (event) => event.stopPropagation());
+        path.addEventListener('click', (event) => {
+          event.stopPropagation();
+          state.selectedNodeId = null;
+          state.selectedEdgeKey = key;
+          render();
+        });
+        el.edgesLayer.appendChild(path);
+
+        if (state.showEdgeLabels || state.selectedEdgeKey === key || state.highlightEdgeKeys.has(key)) {
+          const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          label.setAttribute('class', 'edge-label');
+          label.setAttribute('x', (from.x + to.x) / 2);
+          label.setAttribute('y', (from.y + to.y) / 2 - 4);
+          label.textContent = edge.kind;
+          el.edgeLabelsLayer.appendChild(label);
+        }
+      }
+
+      for (const node of nodes) {
+        const pos = positions.get(node.canonicalId);
+        if (!pos) continue;
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('class', 'node-group');
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        const kindLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        const selected = state.selectedNodeId === node.canonicalId;
+        const entry = state.normalized.entry?.canonicalId === node.canonicalId;
+        const highlighted = !state.highlightNodeIds.size || state.highlightNodeIds.has(node.canonicalId) || selected;
+        const showText = !denseGraph || selected || entry || state.highlightNodeIds.has(node.canonicalId);
+        const radius = radiusFor(node.kind);
+
+        circle.setAttribute('cx', pos.x);
+        circle.setAttribute('cy', pos.y);
+        circle.setAttribute('r', radius);
+        circle.setAttribute('fill', colorFor(node.kind));
+        circle.setAttribute('class', ['node', selected ? 'selected' : '', entry ? 'entry' : ''].filter(Boolean).join(' '));
+        circle.setAttribute('opacity', highlighted ? '1' : '0.32');
+
+        label.setAttribute('x', pos.x + radius + 7);
+        label.setAttribute('y', pos.y - 1);
+        label.setAttribute('class', 'node-label');
+        label.setAttribute('opacity', highlighted ? '1' : '0.38');
+        label.textContent = shortLabel(node.name || node.canonicalId, 34);
+
+        kindLabel.setAttribute('x', pos.x + radius + 7);
+        kindLabel.setAttribute('y', pos.y + 13);
+        kindLabel.setAttribute('class', 'node-kind-label');
+        kindLabel.setAttribute('opacity', highlighted ? '1' : '0.38');
+        kindLabel.textContent = [node.kind, node.namespace].filter(Boolean).join(' / ');
+
+        g.addEventListener('pointerdown', (event) => event.stopPropagation());
+        g.addEventListener('click', (event) => {
+          event.stopPropagation();
+          if (event.detail > 1) return;
+          clearTimeout(nodeClickTimer);
+          nodeClickTimer = setTimeout(() => {
+            state.selectedEdgeKey = null;
+            state.selectedNodeId = node.canonicalId;
+            render();
+          }, 180);
+        });
+        g.addEventListener('dblclick', (event) => {
+          event.stopPropagation();
+          clearTimeout(nodeClickTimer);
+          state.selectedEdgeKey = null;
+          state.selectedNodeId = node.canonicalId;
+          if (isNodeExpanded(node.canonicalId)) {
+            collapseNode(node.canonicalId);
+          } else {
+            expandNode(node.canonicalId, 1).catch(showLoadError);
+          }
+        });
+
+        g.appendChild(circle);
+        if (showText) {
+          g.appendChild(label);
+          g.appendChild(kindLabel);
+        }
+        el.nodesLayer.appendChild(g);
+      }
+    }
+
+    function renderSelection(nodes, edges) {
+      const nodeMap = nodeMapFor(state.normalized?.nodes || []);
+      if (state.selectedNodeId) {
+        const node = nodeMap.get(state.selectedNodeId);
+        if (!node) return resetSelection();
+        el.selectionHint.classList.add('hidden');
+        el.selectionMeta.classList.remove('hidden');
+        el.expandSelectedBtn.classList.remove('hidden');
+        el.collapseSelectedBtn.classList.toggle('hidden', !isNodeExpanded(node.canonicalId));
+        el.selectionTitle.textContent = node.name || node.canonicalId;
+        el.selectionChips.innerHTML = [
+          pill(node.kind, colorFor(node.kind)),
+          pill(node.namespace || 'cluster-scoped'),
+          pill(node.sourceKind || '')
+        ].join('');
+        renderSelectionFacts(nodeFacts(node, state.normalized.edges));
+        el.detailsBox.textContent = JSON.stringify(stripRaw(node), null, 2);
+        renderConnections(node, state.normalized.edges, nodeMap);
+        return;
+      }
+
+      if (state.selectedEdgeKey) {
+        const edge = (state.normalized?.edges || []).find((item) => edgeKey(item) === state.selectedEdgeKey);
+        if (!edge) return resetSelection();
+        el.selectionHint.classList.add('hidden');
+        el.selectionMeta.classList.remove('hidden');
+        el.expandSelectedBtn.classList.add('hidden');
+        el.collapseSelectedBtn.classList.add('hidden');
+        el.selectionTitle.textContent = edge.kind;
+        el.selectionChips.innerHTML = [
+          pill(edge.provenance?.sourceType || ''),
+          pill(edge.provenance?.state || ''),
+          pill(edge.provenance?.resolver || '')
+        ].join('');
+        renderSelectionFacts(edgeFacts(edge, nodeMap));
+        el.detailsBox.textContent = JSON.stringify(stripRaw(edge), null, 2);
+        renderEdgeEndpoints(edge, nodeMap);
+        return;
+      }
+      resetSelection();
+    }
+
+    function resetSelection() {
+      el.selectionHint.classList.remove('hidden');
+      el.selectionMeta.classList.add('hidden');
+      el.expandSelectedBtn.classList.add('hidden');
+      el.collapseSelectedBtn.classList.add('hidden');
+      el.selectionFacts.innerHTML = '';
+      el.detailsBox.textContent = 'No selection.';
+      el.connectionsList.innerHTML = '<div class="muted">Select a node to see incoming and outgoing relations.</div>';
+    }
+
+    function renderSelectionFacts(facts) {
+      el.selectionFacts.innerHTML = '';
+      for (const fact of facts.slice(0, 8)) {
+        const item = document.createElement('div');
+        item.className = 'fact';
+        item.innerHTML = `
+          <div class="label">${escapeHtml(fact.label)}</div>
+          <div class="value" title="${escapeHtml(fact.value)}">${escapeHtml(fact.value)}</div>
+        `;
+        el.selectionFacts.appendChild(item);
+      }
+    }
+
+    function nodeFacts(node, edges) {
+      const attrs = node.attributes || {};
+      const incoming = edges.filter((edge) => edge.to === node.canonicalId).length;
+      const outgoing = edges.filter((edge) => edge.from === node.canonicalId).length;
+      const facts = [];
+      addFact(facts, 'Kind', node.sourceKind || node.kind);
+      addFact(facts, 'Namespace', node.namespace || 'cluster-scoped');
+      addFact(facts, 'Phase', lookupValue(attrs, ['phase', 'status.phase', 'Phase']));
+      addFact(facts, 'Ready', lookupValue(attrs, ['ready', 'Ready', 'status.ready']));
+      addFact(facts, 'Reason', lookupValue(attrs, ['reason', 'status.reason', 'Reason']));
+      addFact(facts, 'Node', lookupValue(attrs, ['nodeName', 'spec.nodeName', 'node', 'Node']));
+      addFact(facts, 'ServiceAccount', lookupValue(attrs, ['serviceAccountName', 'spec.serviceAccountName', 'serviceAccount']));
+      addFact(facts, 'Restarts', lookupValue(attrs, ['restartCount', 'restarts', 'containerRestarts']));
+      addFact(facts, 'Relations', `${incoming} in / ${outgoing} out`);
+      addFact(facts, 'Expansion', isNodeExpanded(node.canonicalId) ? '1 hop loaded' : '');
+      addFact(facts, 'ID', node.canonicalId);
+      return facts;
+    }
+
+    function edgeFacts(edge, nodeMap) {
+      const facts = [];
+      addFact(facts, 'From', describeNode(nodeMap.get(edge.from)) || edge.from);
+      addFact(facts, 'To', describeNode(nodeMap.get(edge.to)) || edge.to);
+      addFact(facts, 'State', edge.provenance?.state);
+      addFact(facts, 'Resolver', edge.provenance?.resolver);
+      addFact(facts, 'Source', edge.provenance?.sourceType);
+      addFact(facts, 'Confidence', edge.provenance?.confidence === null ? '' : edge.provenance?.confidence);
+      addFact(facts, 'Last seen', edge.provenance?.lastSeenAt);
+      return facts;
+    }
+
+    function addFact(facts, label, value) {
+      if (value === undefined || value === null || value === '') return;
+      facts.push({ label, value: shortLabel(formatValue(value), 84) });
+    }
+
+    function renderConnections(node, edges, nodeMap) {
+      const connected = edges.filter((edge) => edge.from === node.canonicalId || edge.to === node.canonicalId);
+      el.connectionsList.innerHTML = '';
+      if (!connected.length) {
+        el.connectionsList.innerHTML = '<div class="muted">No connected relations.</div>';
+        return;
+      }
+      const outgoingEdges = connected.filter((edge) => edge.from === node.canonicalId);
+      const incomingEdges = connected.filter((edge) => edge.to === node.canonicalId);
+      renderConnectionGroup('Outgoing', outgoingEdges, node, nodeMap);
+      renderConnectionGroup('Incoming', incomingEdges, node, nodeMap);
+    }
+
+    function renderConnectionGroup(label, edges, node, nodeMap) {
+      if (!edges.length) return;
+      const heading = document.createElement('div');
+      heading.className = 'list-heading';
+      heading.innerHTML = `<span>${escapeHtml(label)}</span><span>${edges.length}</span>`;
+      el.connectionsList.appendChild(heading);
+      for (const edge of edges.slice(0, 30)) {
+        const outgoing = edge.from === node.canonicalId;
+        const other = nodeMap.get(outgoing ? edge.to : edge.from);
+        const item = document.createElement('div');
+        item.className = 'item clickable';
+        item.innerHTML = `
+          <div class="item-title">${outgoing ? 'out' : 'in'}: ${escapeHtml(edge.kind)}</div>
+          <div class="item-subtitle">${escapeHtml(describeNode(other) || (outgoing ? edge.to : edge.from))}</div>
+        `;
+        item.addEventListener('click', () => {
+          state.selectedEdgeKey = edgeKey(edge);
+          state.selectedNodeId = null;
+          render();
+        });
+        el.connectionsList.appendChild(item);
+      }
+    }
+
+    function renderEdgeEndpoints(edge, nodeMap) {
+      const from = nodeMap.get(edge.from);
+      const to = nodeMap.get(edge.to);
+      el.connectionsList.innerHTML = '';
+      for (const [label, node] of [['from', from], ['to', to]]) {
+        const item = document.createElement('div');
+        item.className = 'item clickable';
+        item.innerHTML = `<div class="item-title">${label}: ${escapeHtml(describeNode(node) || '')}</div><div class="item-subtitle">${escapeHtml(node?.canonicalId || '')}</div>`;
+        if (node) {
+          item.addEventListener('click', () => {
+            state.selectedNodeId = node.canonicalId;
+            state.selectedEdgeKey = null;
+            render();
+          });
+        }
+        el.connectionsList.appendChild(item);
+      }
+    }
+
+    function renderGroups(nodes, edges, positions) {
+      const mode = resolvedLayoutMode();
+      if (!nodes.length || mode === 'radial') return;
+      const buckets = new Map();
+      if (mode === 'distance') {
+        const distances = graphDistances(nodes, edges, state.normalized?.entry?.canonicalId || nodes[0]?.canonicalId);
+        for (const node of nodes) {
+          const distance = distances.has(node.canonicalId) ? distances.get(node.canonicalId) : 99;
+          const label = distance === 0 ? 'Entry' : distance === 99 ? 'Other' : `${distance} hop`;
+          if (!buckets.has(label)) buckets.set(label, []);
+          buckets.get(label).push(node);
+        }
+      } else {
+        for (const node of nodes) {
+          const rank = kindRank(node.kind);
+          const key = `${rank}:${node.kind}`;
+          if (!buckets.has(key)) buckets.set(key, []);
+          buckets.get(key).push(node);
+        }
+      }
+
+      for (const [key, bucket] of buckets) {
+        const points = bucket.map((node) => positions.get(node.canonicalId)).filter(Boolean);
+        if (!points.length) continue;
+        const minX = Math.min(...points.map((point) => point.x));
+        const minY = Math.min(...points.map((point) => point.y));
+        const maxY = Math.max(...points.map((point) => point.y));
+        const labelText = mode === 'distance' ? key : key.split(':').slice(1).join(':');
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('class', 'group-rule');
+        line.setAttribute('x1', minX - 34);
+        line.setAttribute('x2', minX - 34);
+        line.setAttribute('y1', minY - 28);
+        line.setAttribute('y2', maxY + 28);
+        el.groupsLayer.appendChild(line);
+
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('class', 'group-label');
+        label.setAttribute('x', minX - 42);
+        label.setAttribute('y', minY - 38);
+        label.textContent = shortLabel(labelText, 28);
+        el.groupsLayer.appendChild(label);
+      }
+    }
+
+    function computeLayout(nodes, edges) {
+      const mode = resolvedLayoutMode();
+      if (mode === 'distance') return layoutByDistance(nodes, edges, state.normalized?.entry?.canonicalId);
+      if (mode === 'radial') return layoutRadial(nodes, edges, state.normalized?.entry?.canonicalId);
+      return layoutByKind(nodes);
+    }
+
+    function resolvedLayoutMode() {
+      return state.layoutMode === 'auto'
+        ? (state.normalized?.entry?.canonicalId ? 'distance' : 'kind')
+        : state.layoutMode;
+    }
+
+    function layoutByKind(nodes) {
+      const columns = new Map();
+      for (const node of nodes) {
+        const column = kindRank(node.kind);
+        if (!columns.has(column)) columns.set(column, []);
+        columns.get(column).push(node);
+      }
+      const positions = new Map();
+      const columnKeys = [...columns.keys()].sort((a, b) => a - b);
+      const xGap = 240;
+      const yGap = 62;
+      const left = 120;
+      const centerY = 520;
+      columnKeys.forEach((column, columnIndex) => {
+        const bucket = columns.get(column).sort(compareNode);
+        const totalHeight = Math.max(0, (bucket.length - 1) * yGap);
+        bucket.forEach((node, row) => {
+          positions.set(node.canonicalId, {
+            x: left + columnIndex * xGap,
+            y: centerY + row * yGap - totalHeight / 2
+          });
+        });
+      });
+      return positions;
+    }
+
+    function layoutByDistance(nodes, edges, entryId) {
+      const nodeMap = nodeMapFor(nodes);
+      const root = entryId && nodeMap.has(entryId) ? entryId : nodes[0]?.canonicalId;
+      const distances = graphDistances(nodes, edges, root);
+      const layers = new Map();
+      for (const node of nodes) {
+        const distance = distances.has(node.canonicalId) ? distances.get(node.canonicalId) : 99;
+        if (!layers.has(distance)) layers.set(distance, []);
+        layers.get(distance).push(node);
+      }
+      const positions = new Map();
+      const xGap = 230;
+      const yGap = 64;
+      const left = 120;
+      const centerY = 520;
+      for (const layer of [...layers.keys()].sort((a, b) => a - b)) {
+        const bucket = layers.get(layer).sort(compareNode);
+        const totalHeight = Math.max(0, (bucket.length - 1) * yGap);
+        bucket.forEach((node, index) => {
+          positions.set(node.canonicalId, {
+            x: left + (layer === 99 ? 7 : layer) * xGap,
+            y: centerY + index * yGap - totalHeight / 2
+          });
+        });
+      }
+      return positions;
+    }
+
+    function layoutRadial(nodes, edges, entryId) {
+      const root = entryId || nodes[0]?.canonicalId;
+      const distances = graphDistances(nodes, edges, root);
+      const rings = new Map();
+      for (const node of nodes) {
+        const ring = distances.has(node.canonicalId) ? distances.get(node.canonicalId) : 4;
+        if (!rings.has(ring)) rings.set(ring, []);
+        rings.get(ring).push(node);
+      }
+      const positions = new Map();
+      const cx = 800;
+      const cy = 520;
+      for (const ring of [...rings.keys()].sort((a, b) => a - b)) {
+        const bucket = rings.get(ring).sort(compareNode);
+        if (ring === 0 && bucket.length === 1) {
+          positions.set(bucket[0].canonicalId, { x: cx, y: cy });
+          continue;
+        }
+        const radius = 120 + ring * 125;
+        bucket.forEach((node, index) => {
+          const angle = (Math.PI * 2 * index) / Math.max(1, bucket.length) - Math.PI / 2;
+          positions.set(node.canonicalId, {
+            x: cx + Math.cos(angle) * radius,
+            y: cy + Math.sin(angle) * radius
+          });
+        });
+      }
+      return positions;
+    }
+
+    function graphDistances(nodes, edges, root) {
+      const distances = new Map();
+      if (!root) return distances;
+      const adj = new Map(nodes.map((node) => [node.canonicalId, []]));
+      for (const edge of edges) {
+        if (adj.has(edge.from)) adj.get(edge.from).push(edge.to);
+        if (adj.has(edge.to)) adj.get(edge.to).push(edge.from);
+      }
+      const queue = [root];
+      distances.set(root, 0);
+      while (queue.length) {
+        const current = queue.shift();
+        for (const next of adj.get(current) || []) {
+          if (distances.has(next)) continue;
+          distances.set(next, distances.get(current) + 1);
+          queue.push(next);
+        }
+      }
+      return distances;
+    }
+
+    function collectNeighborhood(edges, rootId, maxDepth) {
+      const keep = new Set([rootId]);
+      const adj = new Map();
+      for (const edge of edges) {
+        if (!adj.has(edge.from)) adj.set(edge.from, []);
+        if (!adj.has(edge.to)) adj.set(edge.to, []);
+        adj.get(edge.from).push(edge.to);
+        adj.get(edge.to).push(edge.from);
+      }
+      const queue = [{ id: rootId, depth: 0 }];
+      while (queue.length) {
+        const item = queue.shift();
+        if (item.depth >= maxDepth) continue;
+        for (const next of adj.get(item.id) || []) {
+          if (keep.has(next)) continue;
+          keep.add(next);
+          queue.push({ id: next, depth: item.depth + 1 });
+        }
+      }
+      return keep;
+    }
+
+    function computeHighlights(edges) {
+      state.highlightNodeIds = new Set();
+      state.highlightEdgeKeys = new Set();
+      if (state.selectedNodeId) {
+        state.highlightNodeIds.add(state.selectedNodeId);
+        for (const edge of state.normalized.edges) {
+          if (edge.from === state.selectedNodeId || edge.to === state.selectedNodeId) {
+            state.highlightEdgeKeys.add(edgeKey(edge));
+            state.highlightNodeIds.add(edge.from);
+            state.highlightNodeIds.add(edge.to);
+          }
+        }
+        return;
+      }
+      for (const edge of edges) {
+        if (!INTERESTING_RELATIONS.has(edge.kind)) continue;
+        state.highlightEdgeKeys.add(edgeKey(edge));
+        state.highlightNodeIds.add(edge.from);
+        state.highlightNodeIds.add(edge.to);
+      }
+      if (state.normalized?.entry?.canonicalId) state.highlightNodeIds.add(state.normalized.entry.canonicalId);
+    }
+
+    function wirePanZoom() {
+      el.svg.addEventListener('wheel', (event) => {
+        event.preventDefault();
+        const rect = el.svg.getBoundingClientRect();
+        const anchorX = event.clientX - rect.left;
+        const anchorY = event.clientY - rect.top;
+        zoomBy(event.deltaY < 0 ? 1.12 : 0.9, anchorX, anchorY);
+      }, { passive: false });
+
+      el.svg.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        if (event.target.closest('.toolbar') || event.target.closest('.node-group') || event.target.closest('.edge')) return;
+        isPanning = true;
+        state.isPanning = true;
+        panStart = { x: event.clientX, y: event.clientY, panX: state.panX, panY: state.panY };
+        el.canvasWrap.style.cursor = 'grabbing';
+        document.body.style.userSelect = 'none';
+        el.svg.setPointerCapture?.(event.pointerId);
+      });
+
+      el.svg.addEventListener('pointermove', (event) => {
+        if (!isPanning || !panStart) return;
+        state.panX = panStart.panX + event.clientX - panStart.x;
+        state.panY = panStart.panY + event.clientY - panStart.y;
+        applyTransform();
+      });
+
+      const endPan = (event) => {
+        if (!isPanning) return;
+        isPanning = false;
+        state.isPanning = false;
+        panStart = null;
+        el.canvasWrap.style.cursor = 'grab';
+        document.body.style.userSelect = '';
+        if (event && el.svg.releasePointerCapture) {
+          try { el.svg.releasePointerCapture(event.pointerId); } catch (_) {}
+        }
+      };
+      el.svg.addEventListener('pointerup', endPan);
+      el.svg.addEventListener('pointercancel', endPan);
+      window.addEventListener('pointerup', endPan);
+    }
+
+    function fitToView() {
+      const points = [...state.positions.values()];
+      if (!points.length) return;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const point of points) {
+        minX = Math.min(minX, point.x);
+        minY = Math.min(minY, point.y);
+        maxX = Math.max(maxX, point.x);
+        maxY = Math.max(maxY, point.y);
+      }
+      const graphW = Math.max(1, maxX - minX + 220);
+      const graphH = Math.max(1, maxY - minY + 160);
+      const viewportW = Math.max(400, el.svg.clientWidth - 100);
+      const viewportH = Math.max(300, el.svg.clientHeight - 120);
+      state.scale = Math.max(0.12, Math.min(1.4, Math.min(viewportW / graphW, viewportH / graphH)));
+      state.panX = 70 - (minX - 70) * state.scale;
+      state.panY = 90 - (minY - 80) * state.scale;
+      applyTransform();
+    }
+
+    function zoomBy(multiplier, anchorX = el.svg.clientWidth / 2, anchorY = el.svg.clientHeight / 2) {
+      const previous = state.scale;
+      const next = Math.max(0.08, Math.min(5, previous * multiplier));
+      if (previous === next) return;
+      const worldX = (anchorX - state.panX) / previous;
+      const worldY = (anchorY - state.panY) / previous;
+      state.scale = next;
+      state.panX = anchorX - worldX * next;
+      state.panY = anchorY - worldY * next;
+      applyTransform();
+    }
+
+    function applyTransform() {
+      el.graphViewport.setAttribute('transform', `translate(${state.panX} ${state.panY}) scale(${state.scale})`);
+    }
+
+    function focusEntry() {
+      const entryId = state.normalized?.entry?.canonicalId;
+      if (!entryId) return;
+      state.focusedNodeId = entryId;
+      state.selectedNodeId = entryId;
+      state.selectedEdgeKey = null;
+      render();
+      fitToView();
+    }
+
+    function focusSelected() {
+      if (!state.selectedNodeId) return;
+      state.focusedNodeId = state.selectedNodeId;
+      render();
+      fitToView();
+    }
+
+    function clearFocus() {
+      state.focusedNodeId = null;
+      render();
+      fitToView();
+    }
+
+    function exportVisible() {
+      const payload = {
+        entry: state.normalized?.entry || {},
+        nodes: state.lastVisible.nodes.map(stripRaw),
+        edges: state.lastVisible.edges.map(stripRaw),
+        baseGraph: state.baseGraph ? graphForExport(state.baseGraph) : undefined,
+        expansions: state.expansionLayers.map((layer) => ({
+          ...graphForExport(layer),
+          expandedFrom: layer.expandedFrom,
+          depth: layer.depth,
+          direction: layer.direction,
+          limit: layer.limit
+        })),
+        exportedAt: new Date().toISOString()
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'kubernetes-ontology-visible-topology.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function graphForExport(graph) {
+      return {
+        source: graph.source || '',
+        mode: graph.mode || 'diagnostic',
+        status: graph.status || {},
+        entry: graph.entry || {},
+        nodes: (graph.nodes || []).map(stripRaw),
+        edges: (graph.edges || []).map(stripRaw),
+        collectedAt: graph.collectedAt || '',
+        explanation: graph.explanation || []
+      };
+    }
+
+    function curvedPath(x1, y1, x2, y2) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const bend = Math.min(90, Math.max(30, Math.sqrt(dx * dx + dy * dy) * 0.18));
+      return `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
+    }
+
+    function kindRank(kind) {
+      const order = {
+        WebhookConfig: 0,
+        Service: 1,
+        Workload: 2,
+        Pod: 3,
+        ServiceAccount: 4,
+        RoleBinding: 4,
+        ClusterRoleBinding: 4,
+        ConfigMap: 5,
+        Secret: 5,
+        PVC: 6,
+        PV: 7,
+        StorageClass: 8,
+        CSIDriver: 9,
+        Node: 10,
+        Image: 11,
+        Event: 12
+      };
+      return order[kind] ?? 11;
+    }
+
+    function compareNode(a, b) {
+      return (a.namespace || '').localeCompare(b.namespace || '') ||
+        (a.kind || '').localeCompare(b.kind || '') ||
+        (a.name || '').localeCompare(b.name || '') ||
+        (a.canonicalId || '').localeCompare(b.canonicalId || '');
+    }
+
+    function countBy(items, fn) {
+      const counts = new Map();
+      for (const item of items) {
+        const key = fn(item) || 'Unknown';
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+      return counts;
+    }
+
+    function nodeMapFor(nodes) {
+      return new Map(nodes.map((node) => [node.canonicalId, node]));
+    }
+
+    function statusValue(status, name) {
+      if (!status) return '';
+      const pascal = name.charAt(0).toUpperCase() + name.slice(1);
+      return status[name] ?? status[pascal] ?? '';
+    }
+
+    function lookupValue(source, paths) {
+      for (const path of paths) {
+        const value = valueAtPath(source, path);
+        if (value !== undefined && value !== null && value !== '') return value;
+      }
+      return '';
+    }
+
+    function valueAtPath(source, path) {
+      if (!source || !path) return undefined;
+      const parts = String(path).split('.');
+      let current = source;
+      for (const part of parts) {
+        if (!current || typeof current !== 'object') return undefined;
+        if (Object.prototype.hasOwnProperty.call(current, part)) {
+          current = current[part];
+          continue;
+        }
+        const match = Object.keys(current).find((key) => key.toLowerCase() === part.toLowerCase());
+        if (!match) return undefined;
+        current = current[match];
+      }
+      return current;
+    }
+
+    function describeNode(node) {
+      if (!node) return '';
+      const name = node.namespace ? `${node.namespace}/${node.name}` : node.name;
+      return `${node.kind} ${name || node.canonicalId}`;
+    }
+
+    function edgeKey(edge) {
+      return `${edge.from}|${edge.kind}|${edge.to}`;
+    }
+
+    function colorFor(kind) {
+      return COLORS[kind] || COLORS.default;
+    }
+
+    function relationColor(kind) {
+      if (INTERESTING_RELATIONS.has(kind)) return css('--accent');
+      return css('--muted');
+    }
+
+    function radiusFor(kind) {
+      if (kind === 'Workload') return 18;
+      if (kind === 'Pod') return 16;
+      if (kind === 'Service') return 14;
+      if (kind === 'PV' || kind === 'PVC' || kind === 'StorageClass' || kind === 'CSIDriver') return 14;
+      if (kind === 'Event') return 12;
+      return 11;
+    }
+
+    function shortLabel(value, max) {
+      const text = String(value || '');
+      if (text.length <= max) return text;
+      return text.slice(0, max - 1) + '...';
+    }
+
+    function stripRaw(value) {
+      if (!value || typeof value !== 'object') return value;
+      const copy = { ...value };
+      delete copy.raw;
+      return copy;
+    }
+
+    function formatValue(value) {
+      if (Array.isArray(value)) return value.map(formatValue).join(', ');
+      if (value && typeof value === 'object') return JSON.stringify(value);
+      return String(value);
+    }
+
+    function pill(text, color = '') {
+      if (!text) return '';
+      const dot = color ? `<span class="dot" style="background:${color}"></span>` : '';
+      return `<span class="pill">${dot}${escapeHtml(text)}</span>`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
+    }
+  </script>
+</body>
+</html>

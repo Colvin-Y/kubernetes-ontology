@@ -1,0 +1,21 @@
+bin/*
+.DS_Store
+__pycache__/
+*.pyc
+
+# Local agent/editor state. These files can contain machine-specific prompts,
+# permissions, paths, or credentials and should not be published.
+/.agents/
+/.claude/
+**/.claude/
+/Users/
+
+# Local developer configuration. Keep real kubeconfig paths, cluster names,
+# namespaces, and scratch outputs out of git.
+/local/*.env
+/local/*.yaml
+/local/*.yml
+/local/*.json
+/local/*.out
+/.tmp-*
+/tmp/

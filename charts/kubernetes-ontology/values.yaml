@@ -1,0 +1,81 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/colvin-y/kubernetes-ontology
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+rbac:
+  create: true
+  readSecrets: false
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+
+cluster: default-cluster
+contextNamespaces: []
+streamMode: informer
+bootstrapTimeout: 2m
+pollInterval: 10s
+
+workloadResources: []
+controllerRules: []
+
+server:
+  # Empty host lets Go bind the wildcard listener for the available address
+  # families in the pod, which is friendlier to IPv4, IPv6, and dual-stack
+  # clusters than forcing the IPv4-only 0.0.0.0 wildcard.
+  addr: ":18080"
+  port: 18080
+  service:
+    type: ClusterIP
+    port: 18080
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+viewer:
+  enabled: true
+  replicaCount: 1
+  # Same wildcard style as server.addr for IPv4/IPv6 friendliness.
+  addr: ":8765"
+  port: 8765
+  service:
+    type: ClusterIP
+    port: 8765
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi

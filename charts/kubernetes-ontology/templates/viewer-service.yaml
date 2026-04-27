@@ -1,0 +1,18 @@
+{{- if .Values.viewer.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kubernetes-ontology.fullname" . }}-viewer
+  labels:
+    {{- include "kubernetes-ontology.labels" . | nindent 4 }}
+    app.kubernetes.io/component: viewer
+spec:
+  type: {{ .Values.viewer.service.type }}
+  ports:
+    - port: {{ .Values.viewer.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "kubernetes-ontology.viewerSelectorLabels" . | nindent 4 }}
+{{- end }}

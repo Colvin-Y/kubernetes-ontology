@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kubernetes-ontology.fullname" . }}-config
+  labels:
+    {{- include "kubernetes-ontology.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    cluster: {{ .Values.cluster | quote }}
+    {{- if .Values.contextNamespaces }}
+    contextNamespaces:
+      {{- toYaml .Values.contextNamespaces | nindent 6 }}
+    {{- else }}
+    contextNamespaces: []
+    {{- end }}
+    server:
+      addr: {{ .Values.server.addr | quote }}
+    bootstrapTimeout: {{ .Values.bootstrapTimeout | quote }}
+    pollInterval: {{ .Values.pollInterval | quote }}
+    streamMode: {{ .Values.streamMode | quote }}
+    {{- if .Values.workloadResources }}
+    workloadResources:
+      {{- toYaml .Values.workloadResources | nindent 6 }}
+    {{- else }}
+    workloadResources: []
+    {{- end }}
+    {{- if .Values.controllerRules }}
+    controllerRules:
+      {{- toYaml .Values.controllerRules | nindent 6 }}
+    {{- else }}
+    controllerRules: []
+    {{- end }}

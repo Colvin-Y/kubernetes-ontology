@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version, for example v0.1.0
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release-binaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Test
+        run: go test -p 1 ./...
+
+      - name: Build release archives
+        shell: bash
+        env:
+          VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          targets=(
+            "linux amd64 tar.gz"
+            "linux arm64 tar.gz"
+            "darwin amd64 tar.gz"
+            "darwin arm64 tar.gz"
+            "windows amd64 zip"
+          )
+          for target in "${targets[@]}"; do
+            read -r goos goarch format <<< "${target}"
+            work="dist/kubernetes-ontology_${VERSION}_${goos}_${goarch}"
+            mkdir -p "${work}"
+            ext=""
+            if [ "${goos}" = "windows" ]; then ext=".exe"; fi
+            for cmd in kubernetes-ontology kubernetes-ontologyd kubernetes-ontology-viewer; do
+              CGO_ENABLED=0 GOOS="${goos}" GOARCH="${goarch}" go build \
+                -trimpath \
+                -ldflags="-s -w" \
+                -o "${work}/${cmd}${ext}" "./cmd/${cmd}"
+            done
+            cp README.md LICENSE "${work}/"
+            if [ "${format}" = "zip" ]; then
+              (cd dist && zip -qr "$(basename "${work}").zip" "$(basename "${work}")")
+            else
+              tar -C dist -czf "${work}.tar.gz" "$(basename "${work}")"
+            fi
+            rm -rf "${work}"
+          done
+          (cd dist && sha256sum * > checksums.txt)
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
+          generate_release_notes: true
+          files: dist/*

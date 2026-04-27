@@ -1,0 +1,72 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "kubernetes-ontology.fullname" . }}
+  labels:
+    {{- include "kubernetes-ontology.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources:
+      - configmaps
+      - events
+      - nodes
+      - persistentvolumeclaims
+      - persistentvolumes
+      - pods
+      - serviceaccounts
+      - services
+    verbs: ["get", "list", "watch"]
+  {{- if .Values.rbac.readSecrets }}
+  - apiGroups: [""]
+    resources:
+      - secrets
+    verbs: ["get", "list", "watch"]
+  {{- end }}
+  - apiGroups: ["apps"]
+    resources:
+      - daemonsets
+      - deployments
+      - replicasets
+      - statefulsets
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources:
+      - jobs
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources:
+      - clusterrolebindings
+      - rolebindings
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources:
+      - csidrivers
+      - storageclasses
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources:
+      - mutatingwebhookconfigurations
+      - validatingwebhookconfigurations
+    verbs: ["get", "list"]
+  {{- range .Values.workloadResources }}
+  - apiGroups: [{{ .group | quote }}]
+    resources: [{{ .resource | quote }}]
+    verbs: ["get", "list", "watch"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kubernetes-ontology.fullname" . }}
+  labels:
+    {{- include "kubernetes-ontology.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kubernetes-ontology.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kubernetes-ontology.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

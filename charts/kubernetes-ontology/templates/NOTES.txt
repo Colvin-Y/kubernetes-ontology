@@ -1,0 +1,18 @@
+Kubernetes Ontology has been installed.
+
+Check the server:
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "kubernetes-ontology.fullname" . }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "kubernetes-ontology.fullname" . }} 18080:{{ .Values.server.service.port }}
+
+Then query it from another terminal:
+  kubernetes-ontology --server http://127.0.0.1:18080 --status
+
+{{- if .Values.viewer.enabled }}
+
+Open the dependency-free viewer:
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "kubernetes-ontology.fullname" . }}-viewer
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "kubernetes-ontology.fullname" . }}-viewer 8765:{{ .Values.viewer.service.port }}
+
+Then open:
+  http://127.0.0.1:8765
+{{- end }}

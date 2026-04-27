@@ -1,0 +1,669 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF
+    xmlns="https://kubernetes-ontology.local/ontology#"
+    xml:base="https://kubernetes-ontology.local/ontology"
+    xmlns:ko="https://kubernetes-ontology.local/ontology#"
+    xmlns:owl="http://www.w3.org/2002/07/owl#"
+    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema#">
+  <owl:Ontology rdf:about="https://kubernetes-ontology.local/ontology">
+    <rdfs:label>kubernetes-ontology</rdfs:label>
+    <rdfs:comment>Static OWL schema generated from the kubernetes-ontology in-memory graph model. Runtime instances use canonicalId for identity and EdgeProvenance for evidence.</rdfs:comment>
+  </owl:Ontology>
+
+  <owl:AnnotationProperty rdf:about="#nodeKind"/>
+  <owl:AnnotationProperty rdf:about="#edgeKind"/>
+  <owl:AnnotationProperty rdf:about="#defaultSourceType"/>
+  <owl:AnnotationProperty rdf:about="#defaultState"/>
+  <owl:AnnotationProperty rdf:about="#resolverHint"/>
+
+  <owl:Class rdf:about="#Entity">
+    <rdfs:label>Entity</rdfs:label>
+    <rdfs:comment>Any addressable ontology item in the local semantic graph.</rdfs:comment>
+  </owl:Class>
+  <owl:Class rdf:about="#KubernetesResource">
+    <rdfs:label>KubernetesResource</rdfs:label>
+    <rdfs:comment>A Kubernetes API object or a normalized Kubernetes-derived resource.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+  </owl:Class>
+  <owl:Class rdf:about="#NamespacedResource">
+    <rdfs:label>NamespacedResource</rdfs:label>
+    <rdfs:comment>A Kubernetes resource scoped to a namespace.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#KubernetesResource"/>
+  </owl:Class>
+  <owl:Class rdf:about="#ClusterScopedResource">
+    <rdfs:label>ClusterScopedResource</rdfs:label>
+    <rdfs:comment>A Kubernetes resource without namespace scope.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#KubernetesResource"/>
+  </owl:Class>
+  <owl:Class rdf:about="#StorageClassConsumer">
+    <rdfs:label>StorageClassConsumer</rdfs:label>
+    <rdfs:comment>A resource that may reference a Kubernetes StorageClass.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#KubernetesResource"/>
+  </owl:Class>
+  <owl:Class rdf:about="#RBACBinding">
+    <rdfs:label>RBACBinding</rdfs:label>
+    <rdfs:comment>A RoleBinding or ClusterRoleBinding that binds subjects to a role reference.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#KubernetesResource"/>
+  </owl:Class>
+  <owl:Class rdf:about="#RelationAssertion">
+    <rdfs:label>RelationAssertion</rdfs:label>
+    <rdfs:comment>A reified edge assertion used when runtime materialization needs edge provenance.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+  </owl:Class>
+  <owl:Class rdf:about="#Cluster">
+    <rdfs:label>Cluster</rdfs:label>
+    <rdfs:comment>A Kubernetes cluster identity used by canonical IDs and graph context.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#ClusterScopedResource"/>
+    <ko:nodeKind>Cluster</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#Namespace">
+    <rdfs:label>Namespace</rdfs:label>
+    <rdfs:comment>A Kubernetes namespace.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#ClusterScopedResource"/>
+    <ko:nodeKind>Namespace</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#Workload">
+    <rdfs:label>Workload</rdfs:label>
+    <rdfs:comment>A normalized workload controller such as Deployment, StatefulSet, DaemonSet, Job, or configured custom workload.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#NamespacedResource"/>
+    <ko:nodeKind>Workload</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#Pod">
+    <rdfs:label>Pod</rdfs:label>
+    <rdfs:comment>A Kubernetes Pod. Current graph logic attaches scheduling, owner, runtime image, service account, config, secret, PVC, and controller evidence to Pods.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#NamespacedResource"/>
+    <ko:nodeKind>Pod</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#Container">
+    <rdfs:label>Container</rdfs:label>
+    <rdfs:comment>A container within a Pod. The current builder keeps image use on Pod-level edges but reserves this class for container-level expansion.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <ko:nodeKind>Container</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#Node">
+    <rdfs:label>Node</rdfs:label>
+    <rdfs:comment>A Kubernetes Node.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#ClusterScopedResource"/>
+    <ko:nodeKind>Node</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#Service">
+    <rdfs:label>Service</rdfs:label>
+    <rdfs:comment>A Kubernetes Service with selector-based Pod recovery.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#NamespacedResource"/>
+    <ko:nodeKind>Service</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#ConfigMap">
+    <rdfs:label>ConfigMap</rdfs:label>
+    <rdfs:comment>A Kubernetes ConfigMap referenced by Pods.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#NamespacedResource"/>
+    <ko:nodeKind>ConfigMap</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#Secret">
+    <rdfs:label>Secret</rdfs:label>
+    <rdfs:comment>A Kubernetes Secret referenced by Pods.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#NamespacedResource"/>
+    <ko:nodeKind>Secret</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#ServiceAccount">
+    <rdfs:label>ServiceAccount</rdfs:label>
+    <rdfs:comment>A Kubernetes ServiceAccount used by Pods and bound by RBAC bindings.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#NamespacedResource"/>
+    <ko:nodeKind>ServiceAccount</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#RoleBinding">
+    <rdfs:label>RoleBinding</rdfs:label>
+    <rdfs:comment>A Kubernetes RoleBinding.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#NamespacedResource"/>
+    <rdfs:subClassOf rdf:resource="#RBACBinding"/>
+    <ko:nodeKind>RoleBinding</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#ClusterRoleBinding">
+    <rdfs:label>ClusterRoleBinding</rdfs:label>
+    <rdfs:comment>A Kubernetes ClusterRoleBinding.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#ClusterScopedResource"/>
+    <rdfs:subClassOf rdf:resource="#RBACBinding"/>
+    <ko:nodeKind>ClusterRoleBinding</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#PVC">
+    <rdfs:label>PVC</rdfs:label>
+    <rdfs:comment>A Kubernetes PersistentVolumeClaim.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#NamespacedResource"/>
+    <rdfs:subClassOf rdf:resource="#StorageClassConsumer"/>
+    <ko:nodeKind>PVC</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#PV">
+    <rdfs:label>PV</rdfs:label>
+    <rdfs:comment>A Kubernetes PersistentVolume.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#ClusterScopedResource"/>
+    <rdfs:subClassOf rdf:resource="#StorageClassConsumer"/>
+    <ko:nodeKind>PV</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#StorageClass">
+    <rdfs:label>StorageClass</rdfs:label>
+    <rdfs:comment>A Kubernetes StorageClass.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#ClusterScopedResource"/>
+    <ko:nodeKind>StorageClass</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#CSIDriver">
+    <rdfs:label>CSIDriver</rdfs:label>
+    <rdfs:comment>A Kubernetes CSIDriver or inferred CSI-shaped provisioner.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#ClusterScopedResource"/>
+    <ko:nodeKind>CSIDriver</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#Event">
+    <rdfs:label>Event</rdfs:label>
+    <rdfs:comment>A Kubernetes Event used as observed diagnostic evidence.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#NamespacedResource"/>
+    <ko:nodeKind>Event</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#Image">
+    <rdfs:label>Image</rdfs:label>
+    <rdfs:comment>A container image reference parsed from Pod container specs.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <ko:nodeKind>Image</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#OCIArtifactMetadata">
+    <rdfs:label>OCIArtifactMetadata</rdfs:label>
+    <rdfs:comment>OCI artifact metadata associated with an image.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#Entity"/>
+    <ko:nodeKind>OCIArtifactMetadata</ko:nodeKind>
+  </owl:Class>
+  <owl:Class rdf:about="#WebhookConfig">
+    <rdfs:label>WebhookConfig</rdfs:label>
+    <rdfs:comment>A MutatingWebhookConfiguration or ValidatingWebhookConfiguration used as admission evidence.</rdfs:comment>
+    <rdfs:subClassOf rdf:resource="#ClusterScopedResource"/>
+    <ko:nodeKind>WebhookConfig</ko:nodeKind>
+  </owl:Class>
+
+  <owl:ObjectProperty rdf:about="#belongs_to_namespace">
+    <rdfs:label>belongs_to_namespace</rdfs:label>
+    <rdfs:comment>Relates a namespaced resource to its namespace.</rdfs:comment>
+    <ko:edgeKind>belongs_to_namespace</ko:edgeKind>
+    <rdfs:domain rdf:resource="#NamespacedResource"/>
+    <rdfs:range rdf:resource="#Namespace"/>
+    <ko:defaultSourceType>explicit_ref</ko:defaultSourceType>
+    <ko:defaultState>asserted</ko:defaultState>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#managed_by">
+    <rdfs:label>managed_by</rdfs:label>
+    <rdfs:comment>Relates a Pod to each workload recovered from ownerReferences and owner-chain inference.</rdfs:comment>
+    <ko:edgeKind>managed_by</ko:edgeKind>
+    <rdfs:domain rdf:resource="#Pod"/>
+    <rdfs:range rdf:resource="#Workload"/>
+    <owl:inverseOf rdf:resource="#owns_pod"/>
+    <ko:defaultSourceType>inference_rule</ko:defaultSourceType>
+    <ko:defaultState>inferred</ko:defaultState>
+    <ko:resolverHint>owner-chain/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#controlled_by">
+    <rdfs:label>controlled_by</rdfs:label>
+    <rdfs:comment>Relates a workload to an owning parent workload recovered from ownerReferences.</rdfs:comment>
+    <ko:edgeKind>controlled_by</ko:edgeKind>
+    <rdfs:domain rdf:resource="#Workload"/>
+    <rdfs:range rdf:resource="#Workload"/>
+    <ko:defaultSourceType>owner_reference</ko:defaultSourceType>
+    <ko:defaultState>inferred</ko:defaultState>
+    <ko:resolverHint>owner-chain/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#owns_pod">
+    <rdfs:label>owns_pod</rdfs:label>
+    <rdfs:comment>Relates a workload to a Pod it owns through owner-chain recovery.</rdfs:comment>
+    <ko:edgeKind>owns_pod</ko:edgeKind>
+    <rdfs:domain rdf:resource="#Workload"/>
+    <rdfs:range rdf:resource="#Pod"/>
+    <owl:inverseOf rdf:resource="#managed_by"/>
+    <ko:defaultSourceType>owner_reference</ko:defaultSourceType>
+    <ko:defaultState>inferred</ko:defaultState>
+    <ko:resolverHint>owner-chain/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#scheduled_on">
+    <rdfs:label>scheduled_on</rdfs:label>
+    <rdfs:comment>Relates a Pod to the Node named in pod.spec.nodeName.</rdfs:comment>
+    <ko:edgeKind>scheduled_on</ko:edgeKind>
+    <rdfs:domain rdf:resource="#Pod"/>
+    <rdfs:range rdf:resource="#Node"/>
+    <ko:defaultSourceType>explicit_ref</ko:defaultSourceType>
+    <ko:defaultState>asserted</ko:defaultState>
+    <ko:resolverHint>pod-spec-node/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#selects_pod">
+    <rdfs:label>selects_pod</rdfs:label>
+    <rdfs:comment>Relates a Service to a Pod selected by matching service selectors against Pod labels.</rdfs:comment>
+    <ko:edgeKind>selects_pod</ko:edgeKind>
+    <rdfs:domain rdf:resource="#Service"/>
+    <rdfs:range rdf:resource="#Pod"/>
+    <owl:inverseOf rdf:resource="#selected_by_service"/>
+    <ko:defaultSourceType>selector_match</ko:defaultSourceType>
+    <ko:defaultState>asserted</ko:defaultState>
+    <ko:resolverHint>service-selector/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#selected_by_service">
+    <rdfs:label>selected_by_service</rdfs:label>
+    <rdfs:comment>Inverse of selects_pod for consumers that prefer Pod-centered service traversal.</rdfs:comment>
+    <ko:edgeKind>selected_by_service</ko:edgeKind>
+    <rdfs:domain rdf:resource="#Pod"/>
+    <rdfs:range rdf:resource="#Service"/>
+    <owl:inverseOf rdf:resource="#selects_pod"/>
+    <ko:defaultSourceType>selector_match</ko:defaultSourceType>
+    <ko:defaultState>asserted</ko:defaultState>
+    <ko:resolverHint>service-selector/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#uses_config_map">
+    <rdfs:label>uses_config_map</rdfs:label>
+    <rdfs:comment>Relates a Pod to a ConfigMap referenced by env or volume configuration.</rdfs:comment>
+    <ko:edgeKind>uses_config_map</ko:edgeKind>
+    <rdfs:domain rdf:resource="#Pod"/>
+    <rdfs:range rdf:resource="#ConfigMap"/>
+    <ko:defaultSourceType>explicit_ref</ko:defaultSourceType>
+    <ko:defaultState>asserted</ko:defaultState>
+    <ko:resolverHint>pod-config/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#uses_secret">
+    <rdfs:label>uses_secret</rdfs:label>
+    <rdfs:comment>Relates a Pod to a Secret referenced by env or volume configuration.</rdfs:comment>
+    <ko:edgeKind>uses_secret</ko:edgeKind>
+    <rdfs:domain rdf:resource="#Pod"/>
+    <rdfs:range rdf:resource="#Secret"/>
+    <ko:defaultSourceType>explicit_ref</ko:defaultSourceType>
+    <ko:defaultState>asserted</ko:defaultState>
+    <ko:resolverHint>pod-secret/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#uses_service_account">
+    <rdfs:label>uses_service_account</rdfs:label>
+    <rdfs:comment>Relates a Pod to its ServiceAccount.</rdfs:comment>
+    <ko:edgeKind>uses_service_account</ko:edgeKind>
+    <rdfs:domain rdf:resource="#Pod"/>
+    <rdfs:range rdf:resource="#ServiceAccount"/>
+    <ko:defaultSourceType>explicit_ref</ko:defaultSourceType>
+    <ko:defaultState>asserted</ko:defaultState>
+    <ko:resolverHint>pod-serviceaccount/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#bound_by_role_binding">
+    <rdfs:label>bound_by_role_binding</rdfs:label>
+    <rdfs:comment>Relates a ServiceAccount subject to the RoleBinding or ClusterRoleBinding that binds it.</rdfs:comment>
+    <ko:edgeKind>bound_by_role_binding</ko:edgeKind>
+    <rdfs:domain rdf:resource="#ServiceAccount"/>
+    <rdfs:range rdf:resource="#RBACBinding"/>
+    <ko:defaultSourceType>binding_resolution</ko:defaultSourceType>
+    <ko:defaultState>inferred</ko:defaultState>
+    <ko:resolverHint>rbac-binding/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#mounts_pvc">
+    <rdfs:label>mounts_pvc</rdfs:label>
+    <rdfs:comment>Relates a Pod to a PersistentVolumeClaim referenced by a volume.</rdfs:comment>
+    <ko:edgeKind>mounts_pvc</ko:edgeKind>
+    <rdfs:domain rdf:resource="#Pod"/>
+    <rdfs:range rdf:resource="#PVC"/>
+    <ko:defaultSourceType>explicit_ref</ko:defaultSourceType>
+    <ko:defaultState>asserted</ko:defaultState>
+    <ko:resolverHint>pod-volumes/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#bound_to_pv">
+    <rdfs:label>bound_to_pv</rdfs:label>
+    <rdfs:comment>Relates a PersistentVolumeClaim to its bound PersistentVolume.</rdfs:comment>
+    <ko:edgeKind>bound_to_pv</ko:edgeKind>
+    <rdfs:domain rdf:resource="#PVC"/>
+    <rdfs:range rdf:resource="#PV"/>
+    <ko:defaultSourceType>explicit_ref</ko:defaultSourceType>
+    <ko:defaultState>asserted</ko:defaultState>
+    <ko:resolverHint>pvc-pv-binding/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#uses_storage_class">
+    <rdfs:label>uses_storage_class</rdfs:label>
+    <rdfs:comment>Relates a PersistentVolumeClaim or PersistentVolume to its StorageClass.</rdfs:comment>
+    <ko:edgeKind>uses_storage_class</ko:edgeKind>
+    <rdfs:domain rdf:resource="#StorageClassConsumer"/>
+    <rdfs:range rdf:resource="#StorageClass"/>
+    <ko:defaultSourceType>explicit_ref</ko:defaultSourceType>
+    <ko:defaultState>asserted</ko:defaultState>
+    <ko:resolverHint>pvc-storageclass/v1</ko:resolverHint>
+    <ko:resolverHint>pvc-bound-pv-storageclass/v1</ko:resolverHint>
+    <ko:resolverHint>pv-storageclass/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#provisioned_by_csi_driver">
+    <rdfs:label>provisioned_by_csi_driver</rdfs:label>
+    <rdfs:comment>Relates a StorageClass to an observed or inferred CSI driver provisioner.</rdfs:comment>
+    <ko:edgeKind>provisioned_by_csi_driver</ko:edgeKind>
+    <rdfs:domain rdf:resource="#StorageClass"/>
+    <rdfs:range rdf:resource="#CSIDriver"/>
+    <ko:defaultSourceType>inference_rule</ko:defaultSourceType>
+    <ko:defaultState>inferred</ko:defaultState>
+    <ko:resolverHint>storageclass-provisioner/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#has_container">
+    <rdfs:label>has_container</rdfs:label>
+    <rdfs:comment>Relates a Pod to a contained container. Reserved by the current model for container-level expansion.</rdfs:comment>
+    <ko:edgeKind>has_container</ko:edgeKind>
+    <rdfs:domain rdf:resource="#Pod"/>
+    <rdfs:range rdf:resource="#Container"/>
+    <ko:defaultSourceType>explicit_ref</ko:defaultSourceType>
+    <ko:defaultState>asserted</ko:defaultState>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#uses_image">
+    <rdfs:label>uses_image</rdfs:label>
+    <rdfs:comment>Relates a Pod to a container image reference parsed from its container specs.</rdfs:comment>
+    <ko:edgeKind>uses_image</ko:edgeKind>
+    <rdfs:domain rdf:resource="#Pod"/>
+    <rdfs:range rdf:resource="#Image"/>
+    <ko:defaultSourceType>explicit_ref</ko:defaultSourceType>
+    <ko:defaultState>asserted</ko:defaultState>
+    <ko:resolverHint>container-image/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#has_oci_artifact">
+    <rdfs:label>has_oci_artifact</rdfs:label>
+    <rdfs:comment>Relates an image reference to parsed OCI artifact metadata. Reserved by the current model for richer image metadata.</rdfs:comment>
+    <ko:edgeKind>has_oci_artifact</ko:edgeKind>
+    <rdfs:domain rdf:resource="#Image"/>
+    <rdfs:range rdf:resource="#OCIArtifactMetadata"/>
+    <ko:defaultSourceType>observed</ko:defaultSourceType>
+    <ko:defaultState>observed</ko:defaultState>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#reported_by_event">
+    <rdfs:label>reported_by_event</rdfs:label>
+    <rdfs:comment>Relates an Event node to the resource it reports on through involvedObject.</rdfs:comment>
+    <ko:edgeKind>reported_by_event</ko:edgeKind>
+    <rdfs:domain rdf:resource="#Event"/>
+    <rdfs:range rdf:resource="#KubernetesResource"/>
+    <ko:defaultSourceType>explicit_ref</ko:defaultSourceType>
+    <ko:defaultState>asserted</ko:defaultState>
+    <ko:resolverHint>event-involved-object/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#affected_by_webhook">
+    <rdfs:label>affected_by_webhook</rdfs:label>
+    <rdfs:comment>Relates a workload to webhook configuration evidence when admission-related events are observed.</rdfs:comment>
+    <ko:edgeKind>affected_by_webhook</ko:edgeKind>
+    <rdfs:domain rdf:resource="#Workload"/>
+    <rdfs:range rdf:resource="#WebhookConfig"/>
+    <ko:defaultSourceType>observed</ko:defaultSourceType>
+    <ko:defaultState>observed</ko:defaultState>
+    <ko:resolverHint>webhook-evidence/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#managed_by_controller">
+    <rdfs:label>managed_by_controller</rdfs:label>
+    <rdfs:comment>Relates a workload to a configured controller Pod that manages it.</rdfs:comment>
+    <ko:edgeKind>managed_by_controller</ko:edgeKind>
+    <rdfs:domain rdf:resource="#Workload"/>
+    <rdfs:range rdf:resource="#Pod"/>
+    <ko:defaultSourceType>inference_rule</ko:defaultSourceType>
+    <ko:defaultState>inferred</ko:defaultState>
+    <ko:resolverHint>workload-controller-rule/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#served_by_node_daemon">
+    <rdfs:label>served_by_node_daemon</rdfs:label>
+    <rdfs:comment>Relates a workload to a same-node daemon Pod inferred by configured controller rules.</rdfs:comment>
+    <ko:edgeKind>served_by_node_daemon</ko:edgeKind>
+    <rdfs:domain rdf:resource="#Workload"/>
+    <rdfs:range rdf:resource="#Pod"/>
+    <ko:defaultSourceType>inference_rule</ko:defaultSourceType>
+    <ko:defaultState>inferred</ko:defaultState>
+    <ko:resolverHint>workload-controller-rule/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#implemented_by_csi_controller">
+    <rdfs:label>implemented_by_csi_controller</rdfs:label>
+    <rdfs:comment>Relates a CSI driver to controller Pods inferred by CSI component rules.</rdfs:comment>
+    <ko:edgeKind>implemented_by_csi_controller</ko:edgeKind>
+    <rdfs:domain rdf:resource="#CSIDriver"/>
+    <rdfs:range rdf:resource="#Pod"/>
+    <ko:defaultSourceType>inference_rule</ko:defaultSourceType>
+    <ko:defaultState>inferred</ko:defaultState>
+    <ko:resolverHint>csi-component-rule/local.csi.aliyun.com/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#implemented_by_csi_node_agent">
+    <rdfs:label>implemented_by_csi_node_agent</rdfs:label>
+    <rdfs:comment>Relates a CSI driver to node-agent Pods inferred by CSI component rules.</rdfs:comment>
+    <ko:edgeKind>implemented_by_csi_node_agent</ko:edgeKind>
+    <rdfs:domain rdf:resource="#CSIDriver"/>
+    <rdfs:range rdf:resource="#Pod"/>
+    <ko:defaultSourceType>inference_rule</ko:defaultSourceType>
+    <ko:defaultState>inferred</ko:defaultState>
+    <ko:resolverHint>csi-component-rule/local.csi.aliyun.com/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#served_by_csi_node_agent">
+    <rdfs:label>served_by_csi_node_agent</rdfs:label>
+    <rdfs:comment>Relates a PersistentVolume to the CSI node-agent Pod on its affinity node.</rdfs:comment>
+    <ko:edgeKind>served_by_csi_node_agent</ko:edgeKind>
+    <rdfs:domain rdf:resource="#PV"/>
+    <rdfs:range rdf:resource="#Pod"/>
+    <ko:defaultSourceType>inference_rule</ko:defaultSourceType>
+    <ko:defaultState>inferred</ko:defaultState>
+    <ko:resolverHint>csi-open-local-agent/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#managed_by_csi_controller">
+    <rdfs:label>managed_by_csi_controller</rdfs:label>
+    <rdfs:comment>Relates a PersistentVolume to CSI controller Pods inferred for the PV driver.</rdfs:comment>
+    <ko:edgeKind>managed_by_csi_controller</ko:edgeKind>
+    <rdfs:domain rdf:resource="#PV"/>
+    <rdfs:range rdf:resource="#Pod"/>
+    <ko:defaultSourceType>inference_rule</ko:defaultSourceType>
+    <ko:defaultState>inferred</ko:defaultState>
+    <ko:resolverHint>csi-open-local-controller/v1</ko:resolverHint>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="#related_to">
+    <rdfs:label>related_to</rdfs:label>
+    <rdfs:comment>Generic relation for topology slices and future relations that do not yet have a specific edge kind.</rdfs:comment>
+    <ko:edgeKind>related_to</ko:edgeKind>
+    <rdfs:domain rdf:resource="#Entity"/>
+    <rdfs:range rdf:resource="#Entity"/>
+    <ko:defaultSourceType>observed</ko:defaultSourceType>
+    <ko:defaultState>observed</ko:defaultState>
+  </owl:ObjectProperty>
+
+  <owl:DatatypeProperty rdf:about="#canonicalId">
+    <rdfs:label>canonicalId</rdfs:label>
+    <rdfs:comment>Stable identity key used by ontology queries and graph joins.</rdfs:comment>
+    <rdfs:domain rdf:resource="#Entity"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#kind">
+    <rdfs:label>kind</rdfs:label>
+    <rdfs:comment>Normalized node kind.</rdfs:comment>
+    <rdfs:domain rdf:resource="#Entity"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#sourceKind">
+    <rdfs:label>sourceKind</rdfs:label>
+    <rdfs:comment>Original Kubernetes source kind when available.</rdfs:comment>
+    <rdfs:domain rdf:resource="#Entity"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#name">
+    <rdfs:label>name</rdfs:label>
+    <rdfs:comment>Kubernetes object name or normalized entity name.</rdfs:comment>
+    <rdfs:domain rdf:resource="#Entity"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#namespace">
+    <rdfs:label>namespace</rdfs:label>
+    <rdfs:comment>Kubernetes namespace for namespaced resources.</rdfs:comment>
+    <rdfs:domain rdf:resource="#NamespacedResource"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#apiVersion">
+    <rdfs:label>apiVersion</rdfs:label>
+    <rdfs:comment>Kubernetes API version captured for workload resources.</rdfs:comment>
+    <rdfs:domain rdf:resource="#Workload"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#replicas">
+    <rdfs:label>replicas</rdfs:label>
+    <rdfs:comment>Replica count captured for workload resources.</rdfs:comment>
+    <rdfs:domain rdf:resource="#Workload"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#conditions">
+    <rdfs:label>conditions</rdfs:label>
+    <rdfs:comment>Serialized Kubernetes conditions map.</rdfs:comment>
+    <rdfs:domain rdf:resource="#KubernetesResource"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#phase">
+    <rdfs:label>phase</rdfs:label>
+    <rdfs:comment>Pod phase captured from pod status.</rdfs:comment>
+    <rdfs:domain rdf:resource="#Pod"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#reason">
+    <rdfs:label>reason</rdfs:label>
+    <rdfs:comment>Pod status reason or Event reason.</rdfs:comment>
+    <rdfs:domain rdf:resource="#KubernetesResource"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#nodeName">
+    <rdfs:label>nodeName</rdfs:label>
+    <rdfs:comment>Node name assigned to a Pod.</rdfs:comment>
+    <rdfs:domain rdf:resource="#Pod"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#selector">
+    <rdfs:label>selector</rdfs:label>
+    <rdfs:comment>Serialized Service selector map.</rdfs:comment>
+    <rdfs:domain rdf:resource="#Service"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#status">
+    <rdfs:label>status</rdfs:label>
+    <rdfs:comment>Status string captured for persistent storage resources.</rdfs:comment>
+    <rdfs:domain rdf:resource="#StorageClassConsumer"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#storageClassName">
+    <rdfs:label>storageClassName</rdfs:label>
+    <rdfs:comment>StorageClass name referenced by a PVC or PV.</rdfs:comment>
+    <rdfs:domain rdf:resource="#StorageClassConsumer"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#provisioner">
+    <rdfs:label>provisioner</rdfs:label>
+    <rdfs:comment>StorageClass provisioner string.</rdfs:comment>
+    <rdfs:domain rdf:resource="#StorageClass"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#reclaimPolicy">
+    <rdfs:label>reclaimPolicy</rdfs:label>
+    <rdfs:comment>StorageClass reclaim policy.</rdfs:comment>
+    <rdfs:domain rdf:resource="#StorageClass"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#volumeBindingMode">
+    <rdfs:label>volumeBindingMode</rdfs:label>
+    <rdfs:comment>StorageClass volume binding mode.</rdfs:comment>
+    <rdfs:domain rdf:resource="#StorageClass"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#csi">
+    <rdfs:label>csi</rdfs:label>
+    <rdfs:comment>Serialized PersistentVolume CSI metadata map.</rdfs:comment>
+    <rdfs:domain rdf:resource="#PV"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#roleRef">
+    <rdfs:label>roleRef</rdfs:label>
+    <rdfs:comment>Role reference name on an RBAC binding.</rdfs:comment>
+    <rdfs:domain rdf:resource="#RBACBinding"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#subjectKinds">
+    <rdfs:label>subjectKinds</rdfs:label>
+    <rdfs:comment>Serialized subject kind list on an RBAC binding.</rdfs:comment>
+    <rdfs:domain rdf:resource="#RBACBinding"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#subjectNames">
+    <rdfs:label>subjectNames</rdfs:label>
+    <rdfs:comment>Serialized subject name list on an RBAC binding.</rdfs:comment>
+    <rdfs:domain rdf:resource="#RBACBinding"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#subjectNamespaces">
+    <rdfs:label>subjectNamespaces</rdfs:label>
+    <rdfs:comment>Serialized subject namespace list on an RBAC binding.</rdfs:comment>
+    <rdfs:domain rdf:resource="#RBACBinding"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#message">
+    <rdfs:label>message</rdfs:label>
+    <rdfs:comment>Event message used as diagnostic evidence.</rdfs:comment>
+    <rdfs:domain rdf:resource="#Event"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#repo">
+    <rdfs:label>repo</rdfs:label>
+    <rdfs:comment>Parsed image repository.</rdfs:comment>
+    <rdfs:domain rdf:resource="#Image"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#tag">
+    <rdfs:label>tag</rdfs:label>
+    <rdfs:comment>Parsed image tag.</rdfs:comment>
+    <rdfs:domain rdf:resource="#Image"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#digest">
+    <rdfs:label>digest</rdfs:label>
+    <rdfs:comment>Parsed image digest.</rdfs:comment>
+    <rdfs:domain rdf:resource="#Image"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#containerIndex">
+    <rdfs:label>containerIndex</rdfs:label>
+    <rdfs:comment>Container index from which the image reference was collected.</rdfs:comment>
+    <rdfs:domain rdf:resource="#Image"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#inferredFromStorageClass">
+    <rdfs:label>inferredFromStorageClass</rdfs:label>
+    <rdfs:comment>True when a CSIDriver node is synthesized from a CSI-shaped StorageClass provisioner.</rdfs:comment>
+    <rdfs:domain rdf:resource="#CSIDriver"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#relationKind">
+    <rdfs:label>relationKind</rdfs:label>
+    <rdfs:comment>Edge kind on a reified RelationAssertion.</rdfs:comment>
+    <rdfs:domain rdf:resource="#RelationAssertion"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#fromCanonicalId">
+    <rdfs:label>fromCanonicalId</rdfs:label>
+    <rdfs:comment>Source canonicalId on a reified RelationAssertion.</rdfs:comment>
+    <rdfs:domain rdf:resource="#RelationAssertion"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#toCanonicalId">
+    <rdfs:label>toCanonicalId</rdfs:label>
+    <rdfs:comment>Target canonicalId on a reified RelationAssertion.</rdfs:comment>
+    <rdfs:domain rdf:resource="#RelationAssertion"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#sourceType">
+    <rdfs:label>sourceType</rdfs:label>
+    <rdfs:comment>Edge provenance source type: explicit_ref, selector_match, owner_reference, binding_resolution, inference_rule, or observed.</rdfs:comment>
+    <rdfs:domain rdf:resource="#RelationAssertion"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#state">
+    <rdfs:label>state</rdfs:label>
+    <rdfs:comment>Edge provenance state: asserted, inferred, or observed.</rdfs:comment>
+    <rdfs:domain rdf:resource="#RelationAssertion"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#resolver">
+    <rdfs:label>resolver</rdfs:label>
+    <rdfs:comment>Resolver identifier that produced the relation.</rdfs:comment>
+    <rdfs:domain rdf:resource="#RelationAssertion"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#lastSeenAt">
+    <rdfs:label>lastSeenAt</rdfs:label>
+    <rdfs:comment>Timestamp when the relation was last observed or generated.</rdfs:comment>
+    <rdfs:domain rdf:resource="#RelationAssertion"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#dateTime"/>
+  </owl:DatatypeProperty>
+  <owl:DatatypeProperty rdf:about="#confidence">
+    <rdfs:label>confidence</rdfs:label>
+    <rdfs:comment>Optional confidence value on inferred relations.</rdfs:comment>
+    <rdfs:domain rdf:resource="#RelationAssertion"/>
+    <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+  </owl:DatatypeProperty>
+</rdf:RDF>
