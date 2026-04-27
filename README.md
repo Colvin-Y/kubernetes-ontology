@@ -1,130 +1,66 @@
 # kubernetes-ontology
 
-A read-only Kubernetes ontology database for diagnostics and AI-agent consumption.
+[English](README.md) | [中文说明](README.zh-CN.md)
 
-The project builds an in-memory ontology backend from Kubernetes objects, serves entity/relation queries for AI agents, and exposes diagnostic subgraph queries as the first MVP query family. It can keep the graph fresh during a bounded CLI observe window or as a long-running daemon.
+[![Release](https://github.com/Colvin-Y/kubernetes-ontology/actions/workflows/release.yml/badge.svg)](https://github.com/Colvin-Y/kubernetes-ontology/actions/workflows/release.yml)
+[![Container](https://github.com/Colvin-Y/kubernetes-ontology/actions/workflows/docker.yml/badge.svg)](https://github.com/Colvin-Y/kubernetes-ontology/actions/workflows/docker.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 
-The open-source MVP backend is in-memory only. Persistent graph storage,
-external graph adapters, and runtime recovery beyond rebuilding from Kubernetes
-after restart are intentionally out of scope for the MVP.
+<p align="center">
+  <img src="docs/assets/topology-viewer.jpg" alt="Topology viewer showing a Kubernetes diagnostic graph for CoreDNS" width="100%">
+</p>
 
-For the standard server + client workflow, start with [QUICKSTART.md](QUICKSTART.md).
+`kubernetes-ontology` is a read-only Kubernetes topology service for
+diagnostics, graph exploration, and AI-agent workflows.
 
-## Install Without Compiling
+It builds an in-memory ontology graph from Kubernetes objects, keeps the graph
+fresh with informers or polling, and exposes stable CLI and HTTP queries for
+entities, relations, neighbors, and diagnostic subgraphs.
 
-The release path is designed so users do not need a Go toolchain:
+The open-source MVP is intentionally local and lightweight:
 
-1. Install the Helm chart with the published image:
+- no cluster-side controller or mutating webhook
+- no writes to Kubernetes resources
+- no persistent database requirement
+- no external graph backend requirement
+- no CRD installation requirement
 
-   ```bash
-   export KO_VERSION=v0.1.0
-   export KO_IMAGE=ghcr.io/colvin-y/kubernetes-ontology
+For the standard server and client workflow, start with
+[QUICKSTART.md](QUICKSTART.md).
 
-   helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \
-     --namespace kubernetes-ontology \
-     --create-namespace \
-     --set image.repository="${KO_IMAGE}" \
-     --set image.tag="${KO_VERSION}" \
-     --set cluster="your-logical-cluster" \
-     --set contextNamespaces='{default,kube-system}'
-   ```
+## Why This Exists
 
-   The chart is read-only. Its pod listeners use `:18080` and `:8765` rather
-   than IPv4-only `0.0.0.0` addresses, so they work better in IPv4, IPv6, and
-   dual-stack clusters. It does not grant `secrets` list/watch permission unless
-   you set `rbac.readSecrets=true`.
+Kubernetes troubleshooting usually starts with scattered object reads:
+`kubectl get pod`, then owner references, then services, events, PVCs, RBAC,
+webhooks, CSI drivers, and controller pods.
 
-2. Expose the server locally:
+This project turns those object reads into a graph:
 
-   ```bash
-   kubectl -n kubernetes-ontology port-forward svc/kubernetes-ontology 18080:18080
-   ```
-
-3. Download the `kubernetes-ontology` CLI from
-   [GitHub Releases](https://github.com/Colvin-Y/kubernetes-ontology/releases)
-   and query the server:
-
-   ```bash
-   kubernetes-ontology --server "http://127.0.0.1:18080" --status
-   ```
-
-The same release archive includes `kubernetes-ontology-viewer`, a Go binary
-that serves the topology viewer without Python:
-
-```bash
-kubernetes-ontology-viewer --server "http://127.0.0.1:18080"
-```
-
-The Helm chart also deploys the viewer by default:
-
-```bash
-kubectl -n kubernetes-ontology port-forward svc/kubernetes-ontology-viewer 8765:8765
-```
-
-## Release Publishing
-
-Tagged releases publish no-compile artifacts:
-
-- `.github/workflows/release.yml` builds Linux, macOS, and Windows archives for
-  `kubernetes-ontology`, `kubernetes-ontologyd`, and
-  `kubernetes-ontology-viewer`, then attaches them to the GitHub Release.
-- `.github/workflows/docker.yml` builds a multi-arch image and pushes it to
-  GitHub Container Registry as `ghcr.io/colvin-y/kubernetes-ontology:<tag>`
-  plus the SemVer alias without the leading `v`, and `latest`.
-
-No Docker Hub account or repository secret is required. The workflow uses the
-repository `GITHUB_TOKEN` with `packages: write` permission.
-See [docs/release.md](docs/release.md) for the full release checklist.
-
-Then publish:
-
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-After the first package is created, check the package visibility under your
-GitHub profile's Packages tab. Public GHCR packages can be pulled anonymously;
-if the package is private, change its visibility to Public before documenting it
-for external users.
-
-## Safety Model
-
-The binary runs locally with a user-provided kubeconfig.
-
-It does not:
-- create Kubernetes objects
-- patch or update resources
-- write annotations or CRDs
-- create RBAC resources
-- modify cluster state
-
-Collection is read-only.
-
-## MVP Boundaries
-
-The MVP is a local, read-only topology recovery service:
-- `kubernetes-ontologyd` reads Kubernetes objects and keeps the ontology graph in process memory.
-- Restarting the daemon discards the previous graph and rebuilds from the Kubernetes API.
-- No persistent database, external graph backend, RDF/OWL materialization, CRD/controller installation, or cluster-side agent is required or included.
-- The HTTP API is intended for local or controlled environments, not public multi-tenant exposure.
+- pods, workloads, services, nodes, storage, RBAC, events, images, and webhooks
+  become typed entities
+- Kubernetes references and inferred dependencies become typed relations
+- diagnostic queries return a focused subgraph instead of a flat object dump
+- AI agents can ask stable read-only questions without crawling the cluster
+  from scratch every time
 
 ## Current Capabilities
 
 ### Diagnostic Entrypoints
+
 - `Pod`
 - `Workload`
 
 ### Runtime
-- bootstrap full snapshot sync
-- runtime status projection
-- HTTP daemon entrypoint
-- standalone CLI client for daemon-backed queries
-- bounded observe mode with informer or polling streams
+
+- full bootstrap snapshot from the Kubernetes API
+- long-running daemon with runtime status
+- informer-first continuous refresh with polling fallback
+- bounded CLI observe mode
 - category-aware change planning
 - scoped graph mutation for common update categories
 
 Current narrow strategies:
+
 - `service-narrow`
 - `event-narrow`
 - `storage-narrow`
@@ -132,101 +68,144 @@ Current narrow strategies:
 - `pod-narrow`
 - `workload-narrow`
 
-Unsupported categories still fall back to full rebuild.
+Unsupported categories fall back to a full rebuild.
 
 ### Graph Recovery
-- recursive workload / pod ownership recovery through ownerReferences
-- `Pod -> ReplicaSet -> Deployment` and deeper controller chains
-- configurable custom workload collection for CRDs such as Kruise ASTS and Redis clusters
-- configurable workload controller display rules, for control-plane pods that are not discoverable from ownerReferences
-- service selector matching
-- pod -> node
-- pod -> secret / configmap / serviceaccount
-- serviceaccount -> rolebinding / clusterrolebinding for ServiceAccount subjects
-- pod -> image with lightweight OCI parsing
-- pod -> PVC
-- PVC -> PV
-- PVC / PV -> StorageClass
-- StorageClass -> CSIDriver when the provisioner maps to an observed or CSI-shaped driver
-- event evidence
-- admission webhook evidence
-- PV CSI metadata extraction
+
+The graph can recover and correlate:
+
+- recursive owner chains, including `Pod -> ReplicaSet -> Deployment`
+- custom workload resources configured from CRDs, such as Kruise ASTS or Redis
+  clusters
+- display-only controller ownership rules for controller pods that Kubernetes
+  does not expose through owner references
+- service selector matches
+- pod to node placement
+- pod to Secret, ConfigMap, ServiceAccount, image, PVC, PV, StorageClass, and
+  CSI driver paths
+- ServiceAccount to RoleBinding and ClusterRoleBinding evidence
+- Kubernetes Event and admission webhook evidence
+- PV CSI metadata
 
 ### CSI Correlation
-Current CSI resolver:
-- `local.csi.aliyun.com` -> OpenLocal-style controller and node-agent inference
 
-Recovered evidence can include:
+The current CSI resolver includes OpenLocal-style correlation for
+`local.csi.aliyun.com`, including controller and node-agent inference.
+
+Recovered evidence can include relations such as:
+
 - `provisioned_by_csi_driver`
 - `implemented_by_csi_controller`
 - `implemented_by_csi_node_agent`
 - `managed_by_csi_controller`
 - `served_by_csi_node_agent`
-- explanation text when no matching node-local agent is found
 
-## Quick Start
+## Safety Model
 
-The recommended MVP workflow is covered in [QUICKSTART.md](QUICKSTART.md):
+`kubernetes-ontology` is read-only.
 
-- start `kubernetes-ontologyd` as the continuous local ontology server
-- query it with the standalone `kubernetes-ontology` CLI client
-- use the same HTTP API directly from an AI agent or automation
+It does not:
 
-Minimal build and test commands:
+- create Kubernetes objects
+- patch, update, or delete resources
+- write annotations
+- install CRDs
+- create RBAC resources
+- run a controller in the target cluster
+
+The daemon reads Kubernetes objects using either a local kubeconfig or
+in-cluster credentials from the Helm chart. The HTTP API is intended for local
+or controlled environments, not public multi-tenant exposure.
+
+## Installation
+
+### Option 1: Helm + Release CLI
+
+Use this path when you want to run the server in Kubernetes without compiling
+from source.
+
+```bash
+export KO_VERSION=v0.1.1
+export KO_IMAGE=ghcr.io/colvin-y/kubernetes-ontology
+
+helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \
+  --namespace kubernetes-ontology \
+  --create-namespace \
+  --set image.repository="${KO_IMAGE}" \
+  --set image.tag="${KO_VERSION}" \
+  --set cluster="your-logical-cluster" \
+  --set contextNamespaces='{default,kube-system}'
+```
+
+Expose the server locally:
+
+```bash
+kubectl -n kubernetes-ontology port-forward svc/kubernetes-ontology 18080:18080
+```
+
+Download the `kubernetes-ontology` CLI from
+[GitHub Releases](https://github.com/Colvin-Y/kubernetes-ontology/releases),
+or set `KO_VERSION` to the release tag you want to install, then query the
+server:
+
+```bash
+kubernetes-ontology --server "http://127.0.0.1:18080" --status
+```
+
+The Helm chart also deploys the topology viewer by default:
+
+```bash
+kubectl -n kubernetes-ontology port-forward svc/kubernetes-ontology-viewer 8765:8765
+```
+
+Open `http://127.0.0.1:8765`.
+
+### Option 2: Run From Source
+
+Use this path for local development or when you want to run the daemon from your
+workstation.
 
 ```bash
 make build
-```
-
-```bash
-make test
-```
-
-## CLI Usage
-
-The Makefile wraps the common commands. Direct CLI usage is also supported:
-
-```bash
-go run ./cmd/kubernetes-ontology \
-  --kubeconfig "$HOME/.kube/config" \
-  --cluster "kind-kind" \
-  --entry-kind "Pod" \
-  --namespace "default" \
-  --name "my-pod"
-```
-
-Status-only mode:
-
-```bash
-go run ./cmd/kubernetes-ontology \
-  --kubeconfig "$HOME/.kube/config" \
-  --cluster "kind-kind" \
-  --namespace "default" \
-  --status-only
-```
-
-Bounded observe mode:
-
-```bash
-go run ./cmd/kubernetes-ontology \
-  --kubeconfig "$HOME/.kube/config" \
-  --cluster "kind-kind" \
-  --namespace "default" \
-  --status-only \
-  --observe-duration 40s \
-  --stream-mode polling \
-  --poll-interval 2s
-```
-
-YAML config is the recommended way to keep cluster-specific topology rules:
-
-```bash
 cp local/kubernetes-ontology.yaml.example local/kubernetes-ontology.yaml
-go run ./cmd/kubernetes-ontologyd --config local/kubernetes-ontology.yaml
 ```
 
-The config can define dynamic workload resources for ownerReference inference
-and display-only controller rules:
+Edit `local/kubernetes-ontology.yaml`, then start the daemon:
+
+```bash
+make serve
+```
+
+In another terminal:
+
+```bash
+make status-server
+make list-entities-server ENTITY_KIND=Pod NAMESPACE=default LIMIT=20
+```
+
+See [QUICKSTART.md](QUICKSTART.md) for the full walkthrough.
+
+## Configuration
+
+YAML config is the recommended way to keep cluster-specific settings:
+
+```yaml
+kubeconfig: /absolute/path/to/kubeconfig.yaml
+cluster: your-logical-cluster
+namespace: default
+contextNamespaces:
+  - default
+  - kube-system
+
+server:
+  addr: 127.0.0.1:18080
+  url: http://127.0.0.1:18080
+bootstrapTimeout: 2m
+streamMode: informer
+pollInterval: 5s
+```
+
+Custom workload resources and display-only controller rules are optional:
 
 ```yaml
 workloadResources:
@@ -235,11 +214,7 @@ workloadResources:
     resource: statefulsets
     kind: StatefulSet
     namespaced: true
-  - group: redis.io
-    version: v1beta1
-    resource: clusters
-    kind: Cluster
-    namespaced: true
+
 controllerRules:
   - apiVersion: apps.kruise.io/*
     kind: "*"
@@ -250,47 +225,22 @@ controllerRules:
       - kruise-daemon
 ```
 
-For the CLI, daemon-query mode remains explicit: pass `--server` or use the
-`*-server` make targets. A `server.url` value in YAML does not silently switch
-local collection commands into server mode.
+If a configured custom resource is not installed in the cluster, the daemon logs
+the missing resource and skips that informer. This is expected on a clean kind
+cluster that does not have OpenKruise, Redis operators, or similar CRDs
+installed.
 
-Daemon-backed mode:
+More detail: [local/README.md](local/README.md).
 
-```bash
-go run ./cmd/kubernetes-ontologyd \
-  --kubeconfig "$HOME/.kube/config" \
-  --cluster "kind-kind" \
-  --context-namespaces "default,kube-system" \
-  --workload-resources "apps.kruise.io/v1beta1/statefulsets/StatefulSet,redis.io/v1beta1/clusters/Cluster" \
-  --controller-rules "apiVersion=apps.kruise.io/*;kind=*;namespace=kruise-system;controller=kruise-controller-manager;daemon=kruise-daemon" \
-  --addr "127.0.0.1:18080"
-```
+## CLI Examples
 
-```bash
-go run ./cmd/kubernetes-ontology \
-  --server "http://127.0.0.1:18080" \
-  --list-entities \
-  --entity-kind Pod \
-  --namespace default
-```
-
-```bash
-go run ./cmd/kubernetes-ontology \
-  --server "http://127.0.0.1:18080" \
-  --entry-kind Pod \
-  --namespace default \
-  --name my-pod
-```
-
-## AI-Agent Workflows
-
-Agents should prefer daemon-backed read-only queries with `--server`. The common
-flows are available as action-oriented aliases while the older flags remain
-valid:
+Query daemon status:
 
 ```bash
 ./bin/kubernetes-ontology --server "http://127.0.0.1:18080" --status
 ```
+
+Resolve a pod entity:
 
 ```bash
 ./bin/kubernetes-ontology \
@@ -301,14 +251,7 @@ valid:
   --name my-pod
 ```
 
-```bash
-./bin/kubernetes-ontology \
-  --server "http://127.0.0.1:18080" \
-  --expand-entity \
-  --entity-id 'your/entityGlobalId' \
-  --expand-depth 1 \
-  --limit 100
-```
+Diagnose a pod:
 
 ```bash
 ./bin/kubernetes-ontology \
@@ -318,13 +261,18 @@ valid:
   --name my-pod
 ```
 
+Expand one graph node:
+
 ```bash
 ./bin/kubernetes-ontology \
   --server "http://127.0.0.1:18080" \
-  --diagnose-workload \
-  --namespace default \
-  --name my-deployment
+  --expand-entity \
+  --entity-id 'your/entityGlobalId' \
+  --expand-depth 1 \
+  --limit 100
 ```
+
+List filtered relations:
 
 ```bash
 ./bin/kubernetes-ontology \
@@ -335,10 +283,7 @@ valid:
   --limit 50
 ```
 
-Graph and list responses preserve their existing fields and add `freshness`
-metadata when the daemon has runtime status. Server errors keep the historical
-`error` string and add `code`, `message`, `status`, `retryable`, and `source`.
-Agents can request JSON-only stderr for server query failures:
+For machine-readable server query failures:
 
 ```bash
 ./bin/kubernetes-ontology \
@@ -350,7 +295,7 @@ Agents can request JSON-only stderr for server query failures:
   --name missing-pod
 ```
 
-## Server API
+## HTTP API
 
 The daemon exposes the current in-memory ontology database over HTTP:
 
@@ -365,73 +310,77 @@ The daemon exposes the current in-memory ontology database over HTTP:
 - `GET /diagnostic/pod?namespace=default&name=my-pod`
 - `GET /diagnostic/workload?namespace=default&name=my-deployment`
 
-The diagnostic endpoints are built on top of the same ontology graph. They are not the whole product surface.
-
-Entity, relation, neighbor, expand, and diagnostic responses include additive
-`freshness` metadata with readiness, graph counts, and the last runtime refresh
-timestamps when the daemon can provide them.
-
-Diagnostic traversal uses boundary nodes to keep pod-centered graphs focused.
-By default, shared or evidence-like nodes such as `ServiceAccount`, `ConfigMap`,
-`Secret`, `Node`, `Service`, `Event`, `Image`, and webhook metadata are shown but
-not used as another expansion frontier. HTTP clients can override this with
-`terminalKinds=ServiceAccount,Secret` or `expandTerminalNodes=true`.
-
-Useful flags:
-- `--config`: YAML config file for kubeconfig, cluster, collection scope, CRD workload resources, controller display rules, server address, and traversal defaults
-- `--kubeconfig`: kubeconfig path
-- `--cluster`: logical cluster name used in canonical IDs
-- `--entry-kind`: `Pod` or `Workload`
-- `--namespace`: namespace filter or diagnostic entry namespace
-- `--name`: entry object name
-- `--context-namespaces`: comma-separated namespaces to collect as ontology context, for example `default,kube-system`; empty means all namespaces
-- `--namespaces`: alias for `--context-namespaces`
-- `--workload-resources`: comma-separated custom workload resources; overrides `workloadResources` from `--config`
-- `--controller-rules`: comma-separated controller display rules; overrides `controllerRules` from `--config`
-- `--max-depth`: general diagnostic traversal depth
-- `--storage-max-depth`: deeper traversal budget for storage / CSI paths
-- `--bootstrap-timeout`: timeout for the initial full snapshot sync
-- `--stream-mode`: continuous update mode, either `informer` or `polling`; the daemon defaults to `informer` and falls back to polling if informer startup fails
-- `--terminal-kinds`: comma-separated diagnostic boundary node kinds; default keeps shared/evidence nodes visible but stops traversal through them
-- `--expand-terminal-nodes`: traverse through boundary nodes for deep debugging
-- `--status-only`: print runtime status instead of a diagnostic subgraph
-- `--status`: alias for `--status-only`
-- `--observe-duration`: keep observing before printing output
-- `--poll-interval`: polling interval used with polling mode and informer fallback
-- `--server`: query an existing `kubernetes-ontologyd` server instead of collecting locally
-- `--machine-errors`: print server query failures as structured JSON on stderr
-- `--diagnose-pod`, `--diagnose-workload`: aliases for diagnostic entrypoints using `--namespace` and `--name`
-- `--expand-node`, `--expand-entity`, `--entity-id`, `--expand-depth`: return the same bounded node expansion subgraph used by the viewer
-- `--collapse-node`, `--graph-file`, `--entity-id`: collapse a node expansion from an exported viewer state JSON file
-- `--list-entities`, `--get-entity`, `--resolve-entity`, `--list-relations`, `--list-filtered-relations`, `--neighbors`: daemon-backed ontology database queries
+Graph and list responses include additive `freshness` metadata when daemon
+runtime status is available. Error responses include `code`, `message`,
+`status`, `retryable`, and `source` alongside the historical `error` string.
 
 ## Visualization
 
-A local topology viewer is included:
-- `tools/visualize/index.html`
-- `tools/visualize/server.py`
-- `kubernetes-ontology-viewer`, a dependency-free Go binary that embeds the
-  same HTML UI
+The repository includes a local topology viewer:
 
-Start the ontology daemon first:
+- `kubernetes-ontology-viewer`, a release binary with embedded static assets
+- `tools/visualize/server.py`, a development server
+- `tools/visualize/index.html`, the browser UI
+
+Start the daemon first:
 
 ```bash
 make serve
 ```
 
-Start the viewer in another terminal:
+Start the viewer:
 
 ```bash
 make visualize
 ```
 
-Or use the release viewer binary directly:
+Open `http://127.0.0.1:8765`.
+
+The viewer can load live topology, query focused diagnostic graphs, expand and
+collapse nodes, filter by node or relation metadata, inspect provenance, and
+export the visible subgraph as JSON.
+
+## Architecture
+
+Core layers:
+
+- `internal/collect/k8s`: read-only Kubernetes collection, informers, and
+  polling fallback
+- `internal/runtime`: bootstrap, lifecycle, status, and stream application
+- `internal/ontology`: entity and relation storage abstraction
+- `internal/server`: HTTP API for status, ontology queries, and diagnostics
+- `internal/reconcile`: full rebuild and scoped mutation reconcilers
+- `internal/graph`: graph builder, kernel, and index
+- `internal/query`: query facade
+- `internal/service/diagnostic`: diagnostic subgraph query implementation
+- `tools/visualize`: local graph viewer
+
+Owner-chain recovery prefers controller owner references, resolves by UID first,
+falls back to namespace/kind/name, guards against cycles, and supports deeper
+chains beyond `Pod -> ReplicaSet -> Deployment`.
+
+## Development
+
+Build:
 
 ```bash
-kubernetes-ontology-viewer --server "http://127.0.0.1:18080"
+make build
 ```
 
-After code changes, use the fixed verification flow:
+Run tests:
+
+```bash
+make test
+```
+
+`make test` runs:
+
+```bash
+go test -p 1 ./...
+```
+
+After code changes that touch the daemon or viewer, use the fixed local
+verification flow:
 
 ```bash
 make verify
@@ -440,114 +389,46 @@ make visualize
 make live-check NAMESPACE=default NAME=my-pod
 ```
 
-`live-check` calls the daemon status endpoint, the viewer topology proxy, and a
-pod diagnostic query through the viewer. This catches both backend graph issues
-and the timeout-prone visualization path.
+## Release Publishing
 
-Then open:
+Tagged releases publish:
 
-```text
-http://127.0.0.1:8765
-```
+- archives for `kubernetes-ontology`, `kubernetes-ontologyd`, and
+  `kubernetes-ontology-viewer` on Linux, macOS, and Windows
+- a multi-architecture image at
+  `ghcr.io/colvin-y/kubernetes-ontology:<tag>`
+- SemVer aliases without the leading `v`, plus `latest`
 
-The viewer can:
-- load live topology from `SERVER_URL`
-- poll the daemon for near-real-time refresh
-- query pod or workload diagnostic subgraphs
-- expand a selected node by one hop with the same `/expand` API exposed to CLI users
-- collapse a previously expanded node; exported viewer state can be collapsed from the CLI with `make -s collapse-node-graph`
-- filter by node kind, relation kind, namespace, text, and layout
-- inspect node details, edge provenance, and connected relations
-- export the visible subgraph as JSON
-
-It can also load a diagnostic JSON file by:
-- file picker
-- drag and drop
-- absolute file path through the local server
-- `?file=/tmp/graph.json` URL hint
-
-The browser has no direct cluster access. It talks to the local viewer server,
-which proxies read-only calls to `kubernetes-ontologyd`.
-
-## Architecture
-
-Core layers:
-- `internal/collect/k8s`: read-only Kubernetes collection, informer stream, and polling fallback
-- `internal/runtime`: lifecycle, bootstrap, status, and stream application
-- `internal/ontology`: backend abstraction for entity/relation storage and graph queries
-- `internal/server`: HTTP API for runtime status, ontology queries, and diagnostics
-- `internal/reconcile`: full rebuild plus scoped mutation reconcilers
-- `internal/graph`: graph builder, kernel, and index
-- `internal/query`: query facade
-- `internal/service/diagnostic`: diagnostic subgraph query implementation
-- `tools/visualize`: local graph viewer
-
-Current owner-chain behavior:
-- prefer controller ownerReferences when present
-- resolve by UID first
-- fall back to namespace/kind/name
-- guard against cycles
-- support deeper chains beyond `Pod -> ReplicaSet -> Deployment`
-
-## Design References
-
-Current restart entrypoint:
-- `docs/design/current-state-and-next-steps.md`
-
-Additional design documents:
-- `docs/design/README.md`
-- `docs/design/kubernetes-semantic-kernel-evolution.md`
-- `docs/design/continuous-runtime-technical-design.md`
-- `docs/design/continuous-runtime-progress-snapshot.md`
-
-AI-agent contract:
-- `AI_CONTRACT.md`
-
-Research foundations:
-- `docs/design/research-foundations.md`
-- `docs/design/research/kubernetes-ontology-research.md`
-- `docs/design/research/AICCSA66935.2025.11315476.md`
-
-## Tests
-
-Preferred stable test command:
-
-```bash
-go test -p 1 ./...
-```
-
-This is what `make test` runs.
-
-Coverage includes:
-- graph model and canonical IDs
-- selector matching
-- OCI parsing
-- graph builder contracts
-- diagnostic traversal behavior
-- read-only fake client collection
-- polling stream change detection
-- informer event classification
-- recursive owner-chain resolution
-- scoped reconcilers
-- runtime strategy accounting
+See [docs/release.md](docs/release.md) for the release checklist.
 
 ## Known Limitations
 
-Current limitations:
-- graph state is in memory only by MVP design
-- HTTP API is intended for local or controlled internal networks; auth/TLS is not implemented yet
-- persistent graph backends and external graph adapters are intentionally outside the open-source MVP
-- RBAC topology is represented for ServiceAccount subjects and binding objects, not as a full permission reasoning engine
-- evidence ranking is basic
-- ontology database materialization is not implemented
+- Graph state is in memory only.
+- HTTP auth and TLS are not implemented yet.
+- Persistent graph backends and external graph adapters are outside the
+  open-source MVP.
+- RBAC topology is represented for ServiceAccount subjects and binding objects;
+  it is not a full permission reasoning engine.
+- Evidence ranking is basic.
+- RDF/OWL materialization is not implemented.
 
-## Recommended Next Steps
+## Roadmap
 
-1. Extend informer and scoped-reconcile coverage for future topology categories while preserving the same `ChangeEvent` sink.
-2. Add HTTP auth/TLS and internal soak tests for daemon mode.
-3. Improve diagnostic evidence ranking and schema coverage for downstream AI agents.
-4. Broaden RBAC interpretation carefully without turning the MVP into a full authorization engine.
-5. Keep persistent stores and external graph adapters as post-MVP research, separate from the open-source MVP path.
+1. Extend informer and scoped-reconcile coverage for more topology categories.
+2. Add HTTP auth/TLS and longer daemon soak tests.
+3. Improve diagnostic evidence ranking for downstream AI agents.
+4. Broaden RBAC interpretation without turning the MVP into a full authorization
+   engine.
+5. Keep persistent stores and external graph adapters as post-MVP research.
+
+## Documentation
+
+- [QUICKSTART.md](QUICKSTART.md): full setup and query walkthrough
+- [README.zh-CN.md](README.zh-CN.md): Chinese overview and usage notes
+- [AI_CONTRACT.md](AI_CONTRACT.md): contract for AI-agent consumers
+- [docs/design/README.md](docs/design/README.md): design document index
+- [docs/ontology/README.md](docs/ontology/README.md): ontology notes
+- [docs/release.md](docs/release.md): release checklist
 
 ## License
 

@@ -54,9 +54,11 @@ Docker Hub account, namespace, access token, or repository secret.
 Use semantic version tags:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.1
+git push origin v0.1.1
 ```
+
+Replace `v0.1.1` with the release tag you are publishing.
 
 Pushing the tag starts both workflows:
 
@@ -65,8 +67,8 @@ Pushing the tag starts both workflows:
 - `.github/workflows/docker.yml` builds and pushes a multi-architecture image:
 
   ```text
-  ghcr.io/colvin-y/kubernetes-ontology:v0.1.0
-  ghcr.io/colvin-y/kubernetes-ontology:0.1.0
+  ghcr.io/colvin-y/kubernetes-ontology:v0.1.1
+  ghcr.io/colvin-y/kubernetes-ontology:0.1.1
   ghcr.io/colvin-y/kubernetes-ontology:latest
   ```
 
@@ -85,13 +87,13 @@ gh run list --workflow Docker --limit 5
 Check the release assets:
 
 ```bash
-gh release view v0.1.0
+gh release view v0.1.1
 ```
 
 Pull the image:
 
 ```bash
-docker pull ghcr.io/colvin-y/kubernetes-ontology:v0.1.0
+docker pull ghcr.io/colvin-y/kubernetes-ontology:v0.1.1
 ```
 
 Deploy through Helm:
@@ -101,7 +103,7 @@ helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \
   --namespace kubernetes-ontology \
   --create-namespace \
   --set image.repository=ghcr.io/colvin-y/kubernetes-ontology \
-  --set image.tag=v0.1.0 \
+  --set image.tag=v0.1.1 \
   --set cluster=your-logical-cluster \
   --set contextNamespaces='{default,kube-system}'
 ```

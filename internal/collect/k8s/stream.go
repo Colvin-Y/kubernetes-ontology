@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"log"
 	"sort"
 	"strings"
 	"time"
@@ -208,9 +209,10 @@ func (s *InformerStream) registerDynamicWorkloadInformers(handler cache.Resource
 		return errors.New("informer stream requires dynamic client for custom workload resources")
 	}
 
-	namespaced := make([]WorkloadResource, 0, len(s.workloadResources))
-	clusterScoped := make([]WorkloadResource, 0, len(s.workloadResources))
-	for _, resource := range s.workloadResources {
+	workloadResources := s.availableWorkloadResources()
+	namespaced := make([]WorkloadResource, 0, len(workloadResources))
+	clusterScoped := make([]WorkloadResource, 0, len(workloadResources))
+	for _, resource := range workloadResources {
 		if resource.Namespaced {
 			namespaced = append(namespaced, resource)
 		} else {
@@ -239,6 +241,33 @@ func (s *InformerStream) registerDynamicWorkloadInformers(handler cache.Resource
 		*starters = append(*starters, factory.Start)
 	}
 	return nil
+}
+
+func (s *InformerStream) availableWorkloadResources() []WorkloadResource {
+	out := make([]WorkloadResource, 0, len(s.workloadResources))
+	for _, resource := range s.workloadResources {
+		if s.workloadResourceAvailable(resource) {
+			out = append(out, resource)
+		}
+	}
+	return out
+}
+
+func (s *InformerStream) workloadResourceAvailable(resource WorkloadResource) bool {
+	gvr := resource.GVR()
+	groupVersion := gvr.GroupVersion().String()
+	resourceList, err := s.client.Discovery().ServerResourcesForGroupVersion(groupVersion)
+	if err != nil {
+		log.Printf("custom workload informer skipped for %s/%s: discover API resource: %v", gvr.String(), resource.Kind, err)
+		return false
+	}
+	for _, apiResource := range resourceList.APIResources {
+		if apiResource.Name == gvr.Resource {
+			return true
+		}
+	}
+	log.Printf("custom workload informer skipped for %s/%s: API resource is not served by the cluster", gvr.String(), resource.Kind)
+	return false
 }
 
 func registerInformer(informer cache.SharedIndexInformer, handler cache.ResourceEventHandler, syncs *[]cache.InformerSynced) error {

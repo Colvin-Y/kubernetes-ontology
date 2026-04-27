@@ -11,6 +11,9 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/Colvin-Y/kubernetes-ontology/internal/collect/k8s/resources"
@@ -192,6 +195,46 @@ func TestInformerChangeEventClassification(t *testing.T) {
 				t.Fatalf("event = %#v, want %#v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestRegisterDynamicWorkloadInformersSkipsMissingCustomResources(t *testing.T) {
+	stream := NewInformerStream(k8sfake.NewSimpleClientset(), InformerStreamOptions{
+		DynamicClient: dynamicfake.NewSimpleDynamicClient(runtime.NewScheme()),
+		WorkloadResources: []WorkloadResource{
+			{Group: "apps.kruise.io", Version: "v1beta1", Resource: "statefulsets", Kind: "StatefulSet", Namespaced: true},
+		},
+	})
+
+	var starters []func(<-chan struct{})
+	var syncs []cache.InformerSynced
+	if err := stream.registerDynamicWorkloadInformers(cache.ResourceEventHandlerFuncs{}, &starters, &syncs); err != nil {
+		t.Fatal(err)
+	}
+	if len(starters) != 0 || len(syncs) != 0 {
+		t.Fatalf("expected missing custom resources to be skipped, got starters=%d syncs=%d", len(starters), len(syncs))
+	}
+}
+
+func TestAvailableWorkloadResourcesKeepsServedCustomResources(t *testing.T) {
+	client := k8sfake.NewSimpleClientset()
+	client.Resources = []*metav1.APIResourceList{{
+		GroupVersion: "apps.kruise.io/v1beta1",
+		APIResources: []metav1.APIResource{{
+			Name:       "statefulsets",
+			Kind:       "StatefulSet",
+			Namespaced: true,
+		}},
+	}}
+	stream := NewInformerStream(client, InformerStreamOptions{
+		WorkloadResources: []WorkloadResource{
+			{Group: "apps.kruise.io", Version: "v1beta1", Resource: "statefulsets", Kind: "StatefulSet", Namespaced: true},
+		},
+	})
+
+	got := stream.availableWorkloadResources()
+	if len(got) != 1 {
+		t.Fatalf("expected served custom resource to remain available, got %d", len(got))
 	}
 }
 

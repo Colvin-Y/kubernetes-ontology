@@ -64,6 +64,10 @@ workloadResources:
 Use the actual Kubernetes ownerReference `kind`, such as `StatefulSet` for
 Kruise ASTS, not a local nickname.
 
+These entries are optional. On a clean kind cluster without OpenKruise, Redis
+operators, or similar CRDs installed, informer setup logs the missing resource
+and skips that custom workload instead of stopping the server.
+
 `controllerRules` configures display-only controller relationships that are not
 available from Kubernetes object references:
 

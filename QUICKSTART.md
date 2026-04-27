@@ -1,16 +1,38 @@
 # Quick Start
 
-This guide starts kubernetes-ontology in the recommended MVP mode:
+[Project README](README.md) | [中文说明](README.zh-CN.md)
 
-- `kubernetes-ontologyd` runs as the local ontology server.
-- `kubernetes-ontology` runs as a standalone CLI client.
-- The server reads Kubernetes objects, maintains an in-memory ontology graph, and serves HTTP queries.
-- The client queries the server for status, entities, relations, neighbors, and diagnostic subgraphs.
+This guide gets `kubernetes-ontology` running in its recommended MVP mode:
 
-The server is read-only. It does not create, update, patch, or delete Kubernetes resources.
-The open-source MVP is in-memory only: restarting the daemon discards the
-current graph and rebuilds it from Kubernetes. Persistent stores and external
-graph backends are outside the MVP setup.
+- `kubernetes-ontologyd` runs as the ontology server.
+- `kubernetes-ontology` runs as the CLI client.
+- The server reads Kubernetes objects and maintains an in-memory graph.
+- The client queries status, entities, relations, neighbors, and diagnostic
+  subgraphs through the server.
+
+The server is read-only. It does not create, update, patch, or delete
+Kubernetes resources. The MVP stores graph state in memory only: restarting the
+daemon rebuilds the graph from the Kubernetes API.
+
+## Choose a Path
+
+| Path | Best for | What runs where |
+| ---- | -------- | --------------- |
+| Helm + release CLI | Users who want to try the project without compiling Go code | Server and viewer run in Kubernetes. CLI runs on your workstation. |
+| Source build | Contributors and local development | Server, CLI, and viewer run from this repository. |
+
+If you are unsure, use the Helm path first. Use the source path when changing
+code or testing local patches.
+
+## Contents
+
+- [Prerequisites](#prerequisites)
+- [No-Compile Path: Helm + Release CLI](#no-compile-path-helm--release-cli)
+- [Source Path](#source-path)
+- [Query Examples](#query-examples)
+- [Topology Viewer](#topology-viewer)
+- [Verification Flow For Changes](#verification-flow-for-changes)
+- [Troubleshooting](#troubleshooting)
 
 ## Prerequisites
 
@@ -28,12 +50,13 @@ uses `kubectl port-forward` plus the release CLI binary from your machine.
 Set the version and image namespace you want to use:
 
 ```bash
-export KO_VERSION=v0.1.0
+export KO_VERSION=v0.1.1
 export KO_IMAGE=ghcr.io/colvin-y/kubernetes-ontology
 ```
 
-If you publish a fork or a different package namespace, replace `KO_IMAGE` with
-your image reference.
+Use the `KO_VERSION` value for the release tag you want to install. If you
+publish a fork or a different package namespace, replace `KO_IMAGE` with your
+image reference.
 
 Install the Helm chart:
 
@@ -118,13 +141,17 @@ Python:
 kubernetes-ontology-viewer --server "http://127.0.0.1:18080"
 ```
 
-## 1. Build
+## Source Path
+
+Use this path when you want to run from a local checkout.
+
+### 1. Build
 
 ```bash
 make build build-daemon
 ```
 
-## 2. Create Local Config
+### 2. Create Local Config
 
 Create a machine-local YAML config:
 
@@ -194,6 +221,10 @@ adds display-only controller ownership, such as Kruise workloads being served by
 `kruise-controller-manager` and node-local `kruise-daemon` pods.
 For `workloadResources.kind`, use the actual Kubernetes ownerReference `kind`
 such as `StatefulSet` for Kruise ASTS, not a local nickname.
+The example OpenKruise and Redis resources are optional. On a clean kind
+cluster without those CRDs installed, the server logs the unavailable custom
+resources and skips their informers; remove those entries or install the CRDs
+when you want them collected.
 
 The equivalent CLI flags still exist for one-off overrides:
 
@@ -206,7 +237,7 @@ The equivalent CLI flags still exist for one-off overrides:
 The Makefile still accepts `KUBECONFIG=...`, `CLUSTER=...`, and
 `CONTEXT_NAMESPACES=...` for one-off runs when `CONFIG` is not used.
 
-## 3. Start the Server
+### 3. Start the Server
 
 In terminal 1:
 
@@ -233,7 +264,7 @@ go run ./cmd/kubernetes-ontologyd \
   --disable-polling
 ```
 
-## 4. Check Server Health
+### 4. Check Server Health
 
 In terminal 2:
 
@@ -259,7 +290,9 @@ Direct CLI:
 ./bin/kubernetes-ontology --server "http://127.0.0.1:18080" --status
 ```
 
-## 5. Query Ontology Entities
+## Query Examples
+
+### Query Ontology Entities
 
 List pods:
 
@@ -298,7 +331,7 @@ Resolve one entity with the agent-friendly alias:
   --name my-pod
 ```
 
-## 6. Query Relations and Neighbors
+### Query Relations and Neighbors
 
 List outgoing neighbors for an entity:
 
@@ -354,7 +387,7 @@ Common relation kinds include:
 - `managed_by_csi_controller`
 - `served_by_csi_node_agent`
 
-## 7. Query Diagnostic Subgraphs
+### Query Diagnostic Subgraphs
 
 Diagnose a pod:
 
@@ -397,7 +430,7 @@ through that ServiceAccount to every other pod using it. Use
 `terminalKinds=...` or `expandTerminalNodes=true` on HTTP queries when you need
 that deeper fan-out.
 
-## 8. Use HTTP Directly
+### Use HTTP Directly
 
 The CLI is a convenience wrapper over the HTTP API:
 
@@ -427,7 +460,7 @@ For agent workflows that need machine-readable stderr on failures:
   --name missing-pod
 ```
 
-## 9. View the Topology
+## Topology Viewer
 
 With `make serve` still running, start the local viewer in another terminal:
 
@@ -470,7 +503,7 @@ agent workflow, export the viewer state and collapse the same node locally:
 make -s collapse-node-graph GRAPH_FILE=/tmp/kubernetes-ontology-visible-topology.json ENTITY_ID='your/entityGlobalId'
 ```
 
-## 10. Verification Flow For Changes
+## Verification Flow For Changes
 
 After every code change, run the fixed local verification flow:
 
