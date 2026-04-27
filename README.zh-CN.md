@@ -17,21 +17,29 @@ Kubernetes API 读取对象，在内存中构建实体和关系图，并通过 C
 - AI Agent：通过稳定、只读、结构化的接口查询集群拓扑，而不是每次都从零散
   的 `kubectl` 命令开始推理。
 
-当前开源版本是 MVP，定位是本地、只读、轻量的诊断底座。
+当前开源版本是 MVP，定位是只读、轻量的诊断底座。
 
-## 项目不会做什么
+## 安全模型
 
-`kubernetes-ontology` 默认不修改集群状态：
+`kubernetes-ontology` 对被观测的 Kubernetes 资源是只读的。
 
-- 不创建 Kubernetes 对象
-- 不 patch、update 或 delete 资源
-- 不写 annotation
-- 不安装 CRD
-- 不创建 RBAC
-- 不在目标集群里运行自定义 controller
+daemon 运行时不会：
 
-它只读取对象并构建本地内存图。HTTP API 建议只暴露在本机或受控内网环境中，
-不要直接作为公网多租户服务使用。
+- 创建、patch、update 或 delete 被观测的 Kubernetes 资源
+- 写 annotation 或 status 字段
+- 为被观测的 workload 安装 CRD 或 controller
+- 修改被观测集群里的 RBAC 策略
+
+项目有两种部署方式：
+
+- 本地源码模式使用你的 kubeconfig，只发起只读 Kubernetes API 调用。
+- Helm 模式会安装本项目自己的 Deployment、Service、ServiceAccount、
+  ConfigMap 和只读 RBAC，让 daemon 和 viewer 能在集群内运行。这些是安装阶段
+  的预期资源。chart 授予的 RBAC 只包含对采集资源的 `get`、`list`、
+  `watch` 权限；Secret 读取默认关闭，只有设置 `rbac.readSecrets=true` 才会
+  开启。
+
+HTTP API 建议只暴露在本机或受控内网环境中，不要直接作为公网多租户服务使用。
 
 ## 核心能力
 
@@ -231,7 +239,8 @@ make visualize
 http://127.0.0.1:8765
 ```
 
-Helm chart 默认也会部署 viewer：
+Helm chart 会创建本项目运行所需的 Deployment、Service、ServiceAccount、
+ConfigMap 和只读 RBAC，并默认部署 viewer：
 
 ```bash
 kubectl -n kubernetes-ontology port-forward svc/kubernetes-ontology-viewer 8765:8765

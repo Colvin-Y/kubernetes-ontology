@@ -17,10 +17,10 @@ It builds an in-memory ontology graph from Kubernetes objects, keeps the graph
 fresh with informers or polling, and exposes stable CLI and HTTP queries for
 entities, relations, neighbors, and diagnostic subgraphs.
 
-The open-source MVP is intentionally local and lightweight:
+The open-source MVP is intentionally lightweight:
 
-- no cluster-side controller or mutating webhook
-- no writes to Kubernetes resources
+- no controller or mutating webhook for the workloads being observed
+- no runtime writes to observed Kubernetes resources
 - no persistent database requirement
 - no external graph backend requirement
 - no CRD installation requirement
@@ -102,20 +102,28 @@ Recovered evidence can include relations such as:
 
 ## Safety Model
 
-`kubernetes-ontology` is read-only.
+`kubernetes-ontology` is read-only with respect to the Kubernetes resources it
+observes.
 
-It does not:
+At runtime, the daemon does not:
 
-- create Kubernetes objects
-- patch, update, or delete resources
-- write annotations
-- install CRDs
-- create RBAC resources
-- run a controller in the target cluster
+- create, patch, update, or delete observed Kubernetes resources
+- write annotations or status fields
+- install CRDs or controllers for observed workloads
+- mutate RBAC policy in the observed cluster
 
-The daemon reads Kubernetes objects using either a local kubeconfig or
-in-cluster credentials from the Helm chart. The HTTP API is intended for local
-or controlled environments, not public multi-tenant exposure.
+There are two deployment modes:
+
+- Source/local mode uses your kubeconfig and performs read-only Kubernetes API
+  calls.
+- Helm mode installs this project's own Deployment, Service, ServiceAccount,
+  ConfigMap, and read-only RBAC so the daemon and viewer can run in-cluster.
+  That install-time footprint is expected. The granted RBAC is limited to
+  `get`, `list`, and `watch` for collected resources, with Secret reads disabled
+  unless `rbac.readSecrets=true` is set.
+
+The HTTP API is intended for local or controlled environments, not public
+multi-tenant exposure.
 
 ## Installation
 
@@ -152,7 +160,9 @@ server:
 kubernetes-ontology --server "http://127.0.0.1:18080" --status
 ```
 
-The Helm chart also deploys the topology viewer by default:
+The Helm chart creates the project Deployment, Service, ServiceAccount,
+ConfigMap, and read-only RBAC required to run in-cluster. It also deploys the
+topology viewer by default:
 
 ```bash
 kubectl -n kubernetes-ontology port-forward svc/kubernetes-ontology-viewer 8765:8765

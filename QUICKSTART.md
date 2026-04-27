@@ -10,9 +10,11 @@ This guide gets `kubernetes-ontology` running in its recommended MVP mode:
 - The client queries status, entities, relations, neighbors, and diagnostic
   subgraphs through the server.
 
-The server is read-only. It does not create, update, patch, or delete
-Kubernetes resources. The MVP stores graph state in memory only: restarting the
-daemon rebuilds the graph from the Kubernetes API.
+The daemon is read-only with respect to the Kubernetes resources it observes:
+it does not create, update, patch, delete, or annotate workloads and related
+objects. Helm installation does create this project's own Deployment, Service,
+ServiceAccount, ConfigMap, and read-only RBAC. The MVP stores graph state in
+memory only: restarting the daemon rebuilds the graph from the Kubernetes API.
 
 ## Choose a Path
 
@@ -70,11 +72,13 @@ helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \
   --set contextNamespaces='{default,kube-system}'
 ```
 
-The chart is read-only and uses in-cluster Kubernetes credentials. Inside the
-pod, the server listens on `:18080` rather than `0.0.0.0:18080` so Kubernetes
-IPv4, IPv6, and dual-stack networking can use the wildcard listener supported by
-the runtime. By default the chart does not grant `secrets` list/watch
-permission. If you want Secret nodes and `uses_secret` edges, opt in explicitly:
+The chart installs the project server, viewer, ServiceAccount, ConfigMap, and
+read-only RBAC. The daemon uses those in-cluster credentials only for
+`get`/`list`/`watch` collection. Inside the pod, the server listens on `:18080`
+rather than `0.0.0.0:18080` so Kubernetes IPv4, IPv6, and dual-stack networking
+can use the wildcard listener supported by the runtime. By default the chart
+does not grant `secrets` list/watch permission. If you want Secret nodes and
+`uses_secret` edges, opt in explicitly:
 
 ```bash
 helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \
