@@ -52,7 +52,7 @@ uses `kubectl port-forward` plus the release CLI binary from your machine.
 Set the version and image namespace you want to use:
 
 ```bash
-export KO_VERSION=v0.1.1
+export KO_VERSION=v0.1.2
 export KO_IMAGE=ghcr.io/colvin-y/kubernetes-ontology
 ```
 
@@ -77,14 +77,14 @@ read-only RBAC. The daemon uses those in-cluster credentials only for
 `get`/`list`/`watch` collection. Inside the pod, the server listens on `:18080`
 rather than `0.0.0.0:18080` so Kubernetes IPv4, IPv6, and dual-stack networking
 can use the wildcard listener supported by the runtime. By default the chart
-does not grant `secrets` list/watch permission. If you want Secret nodes and
-`uses_secret` edges, opt in explicitly:
+grants `secrets` `get`/`list`/`watch` permission so Secret nodes and
+`uses_secret` edges can be collected. To run without Secret collection:
 
 ```bash
 helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \
   --namespace kubernetes-ontology \
   --reuse-values \
-  --set rbac.readSecrets=true
+  --set rbac.readSecrets=false
 ```
 
 Wait for the server:

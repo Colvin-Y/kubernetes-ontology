@@ -18,11 +18,15 @@ SPEC.loader.exec_module(visualize_server)
 class VisualizeServerTest(unittest.TestCase):
     def test_root_injects_default_ontology_server(self):
         previous = visualize_server.DEFAULT_ONTOLOGY_SERVER
-        visualize_server.DEFAULT_ONTOLOGY_SERVER = "http://127.0.0.1:19090"
+        visualize_server.DEFAULT_ONTOLOGY_SERVER = "http://kubernetes-ontology:18080"
         viewer = running_server(visualize_server.Handler)
         try:
             body = urllib.request.urlopen(viewer.url + "/").read().decode()
-            self.assertIn('value="http://127.0.0.1:19090"', body)
+            self.assertIn('value="http://kubernetes-ontology:18080"', body)
+            self.assertNotIn(
+                "el.serverUrl.value === 'http://kubernetes-ontology:18080'",
+                body,
+            )
         finally:
             viewer.close()
             visualize_server.DEFAULT_ONTOLOGY_SERVER = previous

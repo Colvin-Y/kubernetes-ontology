@@ -119,8 +119,9 @@ There are two deployment modes:
 - Helm mode installs this project's own Deployment, Service, ServiceAccount,
   ConfigMap, and read-only RBAC so the daemon and viewer can run in-cluster.
   That install-time footprint is expected. The granted RBAC is limited to
-  `get`, `list`, and `watch` for collected resources, with Secret reads disabled
-  unless `rbac.readSecrets=true` is set.
+  `get`, `list`, and `watch` for collected resources. Secret reads are enabled
+  by default so Secret nodes and `uses_secret` edges can be collected; set
+  `rbac.readSecrets=false` to disable them.
 
 The HTTP API is intended for local or controlled environments, not public
 multi-tenant exposure.
@@ -133,7 +134,7 @@ Use this path when you want to run the server in Kubernetes without compiling
 from source.
 
 ```bash
-export KO_VERSION=v0.1.1
+export KO_VERSION=v0.1.2
 export KO_IMAGE=ghcr.io/colvin-y/kubernetes-ontology
 
 helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \
