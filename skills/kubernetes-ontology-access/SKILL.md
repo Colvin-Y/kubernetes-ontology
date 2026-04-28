@@ -110,7 +110,7 @@ project release they selected or the version already present in the repository
 docs. Do not invent a future version.
 
 ```bash
-export KO_VERSION=v0.1.2
+export KO_VERSION=v0.1.3
 export KO_IMAGE=ghcr.io/colvin-y/kubernetes-ontology
 
 helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \

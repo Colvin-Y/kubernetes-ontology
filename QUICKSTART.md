@@ -52,7 +52,7 @@ uses `kubectl port-forward` plus the release CLI binary from your machine.
 Set the version and image namespace you want to use:
 
 ```bash
-export KO_VERSION=v0.1.2
+export KO_VERSION=v0.1.3
 export KO_IMAGE=ghcr.io/colvin-y/kubernetes-ontology
 ```
 

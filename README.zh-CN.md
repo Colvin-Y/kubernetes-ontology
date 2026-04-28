@@ -110,7 +110,7 @@ npx skills add https://github.com/Colvin-Y/kubernetes-ontology/tree/main/skills/
 `kubectl port-forward` 访问。
 
 ```bash
-export KO_VERSION=v0.1.2
+export KO_VERSION=v0.1.3
 export KO_IMAGE=ghcr.io/colvin-y/kubernetes-ontology
 
 helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \
