@@ -62,8 +62,10 @@ Replace `v0.1.3` with the release tag you are publishing.
 
 Pushing the tag starts both workflows:
 
-- `.github/workflows/release.yml` creates a GitHub Release and uploads CLI,
-  server, and viewer archives.
+- `.github/workflows/release.yml` creates a GitHub Release and uploads
+  per-platform archives containing `kubernetes-ontology` (CLI),
+  `kubernetes-ontologyd` (server), `kubernetes-ontology-viewer`, README files,
+  `QUICKSTART.md`, `AI_CONTRACT.md`, and the local config example.
 - `.github/workflows/docker.yml` builds and pushes a multi-architecture image:
 
   ```text
@@ -88,6 +90,13 @@ Check the release assets:
 
 ```bash
 gh release view v0.1.3
+```
+
+Inspect one archive when release packaging changes:
+
+```bash
+gh release download v0.1.3 --pattern 'kubernetes-ontology_v0.1.3_linux_amd64.tar.gz' --clobber
+tar -tzf kubernetes-ontology_v0.1.3_linux_amd64.tar.gz | grep -E 'kubernetes-ontologyd$|kubernetes-ontology$|QUICKSTART.md|local/kubernetes-ontology.yaml.example'
 ```
 
 Pull the image:

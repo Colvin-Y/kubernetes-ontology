@@ -146,10 +146,13 @@ At runtime, the daemon does not:
 - install CRDs or controllers for observed workloads
 - mutate RBAC policy in the observed cluster
 
-There are two deployment modes:
+There are three deployment modes:
 
 - Source/local mode uses your kubeconfig and performs read-only Kubernetes API
   calls.
+- Release binary mode uses the published archive to run `kubernetes-ontologyd`
+  on your workstation or a bastion host. It creates no Kubernetes resources and
+  only needs network access from that host to the Kubernetes API server.
 - Helm mode installs this project's own Deployment, Service, ServiceAccount,
   ConfigMap, and read-only RBAC so the daemon and viewer can run in-cluster.
   That install-time footprint is expected. The granted RBAC is limited to
@@ -162,10 +165,56 @@ multi-tenant exposure.
 
 ## Installation
 
-### Option 1: Helm + Release CLI
+### Option 1: Release Binary Server + Client
+
+Use this path when the target cluster is private, air-gapped, or cannot pull
+the published GHCR image. The release archive includes the server
+`kubernetes-ontologyd`, the CLI client `kubernetes-ontology`, and the optional
+viewer `kubernetes-ontology-viewer`.
+
+```bash
+export KO_VERSION=v0.1.3
+curl -LO "https://github.com/Colvin-Y/kubernetes-ontology/releases/download/${KO_VERSION}/kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
+tar -xzf "kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
+cd "kubernetes-ontology_${KO_VERSION}_linux_amd64"
+```
+
+Create `kubernetes-ontology.yaml` with a kubeconfig path and collection scope:
+
+```yaml
+kubeconfig: /absolute/path/to/kubeconfig.yaml
+cluster: your-logical-cluster
+contextNamespaces:
+  - default
+  - kube-system
+server:
+  addr: 127.0.0.1:18080
+bootstrapTimeout: 2m
+streamMode: informer
+```
+
+Start the server:
+
+```bash
+./kubernetes-ontologyd --config ./kubernetes-ontology.yaml
+```
+
+Query it from another terminal:
+
+```bash
+./kubernetes-ontology --server "http://127.0.0.1:18080" --status
+```
+
+This mode starts only host-local processes. Stop foreground server or viewer
+processes with `Ctrl-C`; if you background them, store the PID and `kill` it
+when the diagnostic session ends.
+
+### Option 2: Helm + Release CLI
 
 Use this path when you want to run the server in Kubernetes without compiling
-from source.
+from source and cluster nodes can pull the configured image. For private
+clusters, mirror `ghcr.io/colvin-y/kubernetes-ontology` to an internal registry
+and set `KO_IMAGE` to that mirror, or use the release binary path above.
 
 ```bash
 export KO_VERSION=v0.1.3
@@ -205,7 +254,14 @@ kubectl -n kubernetes-ontology port-forward svc/kubernetes-ontology-viewer 8765:
 
 Open `http://127.0.0.1:8765`.
 
-### Option 2: Run From Source
+Stop short-lived `kubectl port-forward` processes with `Ctrl-C`. Remove the
+in-cluster footprint with:
+
+```bash
+helm uninstall kubernetes-ontology --namespace kubernetes-ontology
+```
+
+### Option 3: Run From Source
 
 Use this path for local development or when you want to run the daemon from your
 workstation.
@@ -446,8 +502,8 @@ make live-check NAMESPACE=default NAME=my-pod
 
 Tagged releases publish:
 
-- archives for `kubernetes-ontology`, `kubernetes-ontologyd`, and
-  `kubernetes-ontology-viewer` on Linux, macOS, and Windows
+- per-platform archives containing `kubernetes-ontology`, `kubernetes-ontologyd`,
+  `kubernetes-ontology-viewer`, Quickstart docs, and a local config example
 - a multi-architecture image at
   `ghcr.io/colvin-y/kubernetes-ontology:<tag>`
 - SemVer aliases without the leading `v`, plus `latest`

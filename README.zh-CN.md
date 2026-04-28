@@ -33,9 +33,12 @@ daemon 运行时不会：
 - 为被观测的 workload 安装 CRD 或 controller
 - 修改被观测集群里的 RBAC 策略
 
-项目有两种部署方式：
+项目有三种部署方式：
 
 - 本地源码模式使用你的 kubeconfig，只发起只读 Kubernetes API 调用。
+- Release 二进制模式使用发布归档里的 `kubernetes-ontologyd`，在你的工作机
+  或跳板机上运行 server。它不会在集群里创建资源，只需要这台机器能访问
+  Kubernetes API server。
 - Helm 模式会安装本项目自己的 Deployment、Service、ServiceAccount、
   ConfigMap 和只读 RBAC，让 daemon 和 viewer 能在集群内运行。这些是安装阶段
   的预期资源。chart 授予的 RBAC 只包含对采集资源的 `get`、`list`、
@@ -102,12 +105,63 @@ npx skills add https://github.com/Colvin-Y/kubernetes-ontology/tree/main/skills/
 ## 快速开始
 
 完整步骤见 [QUICKSTART.md](QUICKSTART.md)。如果只想先跑起来，可以选择下面
-两种方式之一。
+三种方式之一。
 
-### 方式一：Helm + Release CLI
+### 方式一：Release 二进制 Server + Client
+
+适合内网、离线或集群节点无法拉取公网镜像的环境。GitHub Release 归档里包含
+`kubernetes-ontologyd` server、`kubernetes-ontology` client 和可选的
+`kubernetes-ontology-viewer`。
+
+```bash
+export KO_VERSION=v0.1.3
+curl -LO "https://github.com/Colvin-Y/kubernetes-ontology/releases/download/${KO_VERSION}/kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
+tar -xzf "kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
+cd "kubernetes-ontology_${KO_VERSION}_linux_amd64"
+```
+
+Release 归档里带有 `local/kubernetes-ontology.yaml.example`。可以复制一份：
+
+```bash
+cp local/kubernetes-ontology.yaml.example kubernetes-ontology.yaml
+```
+
+然后编辑 `kubernetes-ontology.yaml`，写入 kubeconfig 和采集范围：
+
+```yaml
+kubeconfig: /absolute/path/to/kubeconfig.yaml
+cluster: your-logical-cluster
+contextNamespaces:
+  - default
+  - kube-system
+server:
+  addr: 127.0.0.1:18080
+bootstrapTimeout: 2m
+streamMode: informer
+```
+
+启动 server：
+
+```bash
+./kubernetes-ontologyd --config ./kubernetes-ontology.yaml
+```
+
+另开一个终端查询：
+
+```bash
+./kubernetes-ontology --server "http://127.0.0.1:18080" --status
+```
+
+这种方式不会在集群里创建 Deployment、Service、ServiceAccount、ConfigMap
+或 RBAC，只会在宿主机上启动本地进程。前台进程用 `Ctrl-C` 停止；如果后台运行，
+记得保存 PID 并在诊断结束后 `kill`，避免长期占用本机资源或持续 watch 集群。
+
+### 方式二：Helm + Release CLI
 
 适合不想本地编译的用户。服务端运行在 Kubernetes 集群内，本机通过
-`kubectl port-forward` 访问。
+`kubectl port-forward` 访问。内网环境如果节点无法拉取 GHCR 镜像，请先把
+`ghcr.io/colvin-y/kubernetes-ontology` 镜像同步到内部镜像仓库并把
+`KO_IMAGE` 改成内部地址，或者使用上面的二进制方式。
 
 ```bash
 export KO_VERSION=v0.1.3
@@ -136,7 +190,14 @@ release tag，然后查询状态：
 kubernetes-ontology --server "http://127.0.0.1:18080" --status
 ```
 
-### 方式二：从源码运行
+短期试用结束后，用 `Ctrl-C` 停止 `kubectl port-forward`；如果不再长期使用，
+可以卸载集群内资源：
+
+```bash
+helm uninstall kubernetes-ontology --namespace kubernetes-ontology
+```
+
+### 方式三：从源码运行
 
 适合本地开发或调试。
 
