@@ -103,6 +103,37 @@ Recovered evidence can include relations such as:
 - `managed_by_csi_controller`
 - `served_by_csi_node_agent`
 
+## Agent Onboarding
+
+This repository provides a Codex-style skill:
+[`skills/kubernetes-ontology-access`](skills/kubernetes-ontology-access/SKILL.md).
+Copy it from the checkout into your local Codex skills directory when you want
+an AI agent to guide the whole onboarding flow instead of reading the docs
+manually.
+
+```bash
+mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
+cp -R skills/kubernetes-ontology-access "${CODEX_HOME:-$HOME/.codex}/skills/"
+```
+
+Restart Codex after installing the skill, then ask for a guided setup, for
+example:
+
+```text
+Use the kubernetes-ontology-access skill to onboard my cluster with Helm,
+install the CLI, run a Pod diagnostic query, and open the viewer path.
+```
+
+The skill connects the three intended access modes:
+
+- AI-agent automatic troubleshooting with daemon-backed diagnostic subgraphs.
+- CLI queries for status, entity resolution, relations, neighbors, expansion,
+  and Pod/Workload diagnosis.
+- Human visual inspection through the topology viewer and exported graph JSON.
+
+Agent implementers should also read [AI_CONTRACT.md](AI_CONTRACT.md) for the
+diagnostic subgraph contract and safe downstream reasoning rules.
+
 ## Safety Model
 
 `kubernetes-ontology` is read-only with respect to the Kubernetes resources it
@@ -440,6 +471,8 @@ See [docs/release.md](docs/release.md) for the release checklist.
 - [QUICKSTART.md](QUICKSTART.md): full setup and query walkthrough
 - [README.zh-CN.md](README.zh-CN.md): Chinese overview and usage notes
 - [AI_CONTRACT.md](AI_CONTRACT.md): contract for AI-agent consumers
+- [skills/kubernetes-ontology-access](skills/kubernetes-ontology-access/SKILL.md):
+  project-local skill for Helm, CLI, AI-agent, and viewer onboarding
 - [docs/design/README.md](docs/design/README.md): design document index
 - [docs/ontology/README.md](docs/ontology/README.md): ontology notes
 - [docs/release.md](docs/release.md): release checklist
