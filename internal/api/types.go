@@ -2,13 +2,6 @@ package api
 
 import "time"
 
-type EntryKind string
-
-const (
-	EntryKindPod      EntryKind = "Pod"
-	EntryKindWorkload EntryKind = "Workload"
-)
-
 type NodeKind string
 
 const (
@@ -86,10 +79,10 @@ const (
 )
 
 type EntryRef struct {
-	Kind        EntryKind `json:"kind"`
-	CanonicalID string    `json:"canonicalId,omitempty"`
-	Namespace   string    `json:"namespace,omitempty"`
-	Name        string    `json:"name,omitempty"`
+	Kind        NodeKind `json:"kind"`
+	CanonicalID string   `json:"canonicalId,omitempty"`
+	Namespace   string   `json:"namespace,omitempty"`
+	Name        string   `json:"name,omitempty"`
 }
 
 type ExpansionPolicy struct {

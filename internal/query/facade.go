@@ -254,11 +254,15 @@ func (f *Facade) QueryDiagnosticSubgraphContext(ctx context.Context, entryKind, 
 	if err != nil {
 		return api.DiagnosticSubgraph{}, err
 	}
+	entryNamespace := namespace
+	if !isNamespacedDiagnosticKind(normalizedKind) {
+		entryNamespace = ""
+	}
 
 	result, err := f.Diagnostic.GetDiagnosticSubgraphContext(ctx, api.EntryRef{
-		Kind:        api.EntryKind(normalizedKind),
+		Kind:        normalizedKind,
 		CanonicalID: entryID,
-		Namespace:   namespace,
+		Namespace:   entryNamespace,
 		Name:        name,
 	}, f.DiagnosticPolicy(options))
 	if err != nil {

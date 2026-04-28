@@ -300,6 +300,43 @@ func TestFacadeQueryDiagnosticSubgraphFromPVC(t *testing.T) {
 	}
 }
 
+func TestFacadeQueryDiagnosticSubgraphClearsClusterScopedEntryNamespace(t *testing.T) {
+	store := memorystore.NewStore()
+	kernel := graph.NewKernel(store, store)
+	service := diagnostic.NewService(kernel)
+	builder := graph.NewBuilder("cluster-a")
+	snapshot := collectk8s.Snapshot{
+		StorageClasses: []resources.StorageClass{{
+			Metadata:    resources.Metadata{UID: "sc1", Name: "standard"},
+			Provisioner: "kubernetes.io/no-provisioner",
+		}},
+	}
+
+	nodes, edges := builder.Build(snapshot)
+	for _, node := range nodes {
+		if err := kernel.UpsertNode(node); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, edge := range edges {
+		if err := kernel.UpsertEdge(edge); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	facade := NewFacade("cluster-a", snapshot, builder, service)
+	result, err := facade.QueryDiagnosticSubgraph("StorageClass", "default", "standard", DiagnosticOptions{MaxDepth: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Entry.Kind != api.NodeKindStorageClass {
+		t.Fatalf("expected StorageClass entry kind, got %q", result.Entry.Kind)
+	}
+	if result.Entry.Namespace != "" {
+		t.Fatalf("expected cluster-scoped entry namespace to be empty, got %q", result.Entry.Namespace)
+	}
+}
+
 func diagnosticResultContainsKind(nodes []api.DiagnosticNode, kind api.NodeKind) bool {
 	for _, node := range nodes {
 		if node.Kind == kind {

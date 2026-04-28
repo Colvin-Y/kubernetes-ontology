@@ -49,7 +49,7 @@ func TestGetDiagnosticSubgraph(t *testing.T) {
 	}
 
 	result, err := service.GetDiagnosticSubgraph(api.EntryRef{
-		Kind:        api.EntryKindPod,
+		Kind:        api.NodeKindPod,
 		CanonicalID: pod.ID.String(),
 	}, api.ExpansionPolicy{MaxDepth: 2})
 	if err != nil {
@@ -125,7 +125,7 @@ func TestGetDiagnosticSubgraphTraversesStorageClassAndCSIDriver(t *testing.T) {
 		}
 	}
 
-	result, err := service.GetDiagnosticSubgraph(api.EntryRef{Kind: api.EntryKindPod, CanonicalID: pod.ID.String()}, api.ExpansionPolicy{
+	result, err := service.GetDiagnosticSubgraph(api.EntryRef{Kind: api.NodeKindPod, CanonicalID: pod.ID.String()}, api.ExpansionPolicy{
 		MaxDepth:        1,
 		StorageMaxDepth: 4,
 		IncludeStorage:  true,
@@ -143,7 +143,7 @@ func TestGetDiagnosticSubgraphTraversesStorageClassAndCSIDriver(t *testing.T) {
 		t.Fatalf("expected storage traversal to avoid sibling storage fan-out, got %#v", result.Nodes)
 	}
 
-	withoutStorage, err := service.GetDiagnosticSubgraph(api.EntryRef{Kind: api.EntryKindPod, CanonicalID: pod.ID.String()}, api.ExpansionPolicy{
+	withoutStorage, err := service.GetDiagnosticSubgraph(api.EntryRef{Kind: api.NodeKindPod, CanonicalID: pod.ID.String()}, api.ExpansionPolicy{
 		MaxDepth:        4,
 		StorageMaxDepth: 4,
 		IncludeStorage:  false,

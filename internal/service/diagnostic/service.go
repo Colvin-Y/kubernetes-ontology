@@ -141,7 +141,7 @@ func (s *Service) GetDiagnosticSubgraphByPod(namespace, name string, policy api.
 			continue
 		}
 		entry := api.EntryRef{
-			Kind:        api.EntryKindPod,
+			Kind:        api.NodeKindPod,
 			CanonicalID: node.ID.String(),
 			Namespace:   namespace,
 			Name:        name,
