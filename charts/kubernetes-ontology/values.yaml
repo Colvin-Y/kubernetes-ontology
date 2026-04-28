@@ -16,13 +16,15 @@ serviceAccount:
 
 rbac:
   create: true
-  readSecrets: false
+  readSecrets: true
 
 podAnnotations: {}
 podLabels: {}
 
 podSecurityContext:
   runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
   seccompProfile:
     type: RuntimeDefault
 

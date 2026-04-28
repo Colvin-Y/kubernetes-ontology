@@ -54,8 +54,8 @@ jobs:
                 -o "${work}/${cmd}${ext}" "./cmd/${cmd}"
             done
             cp README.md README.zh-CN.md LICENSE "${work}/"
-            mkdir -p "${work}/docs/assets"
-            cp docs/assets/topology-viewer.jpg "${work}/docs/assets/"
+            mkdir -p "${work}/docs"
+            cp -R docs/assets "${work}/docs/"
             if [ "${format}" = "zip" ]; then
               (cd dist && zip -qr "$(basename "${work}").zip" "$(basename "${work}")")
             else

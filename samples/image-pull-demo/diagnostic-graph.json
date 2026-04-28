@@ -1,0 +1,248 @@
+{
+  "source": "sample/image-pull-demo",
+  "entry": {
+    "kind": "Pod",
+    "canonicalId": "demo-cluster/core/Pod/ontology-demo/checkout-api-7b9d9f7d4d-x2k8m/pod-uid/_",
+    "namespace": "ontology-demo",
+    "name": "checkout-api-7b9d9f7d4d-x2k8m"
+  },
+  "nodes": [
+    {
+      "canonicalId": "demo-cluster/apps/Workload/ontology-demo/Deployment:checkout-api/deploy-uid/_",
+      "kind": "Workload",
+      "sourceKind": "Deployment",
+      "name": "checkout-api",
+      "namespace": "ontology-demo",
+      "attributes": {
+        "replicas": 1,
+        "readyReplicas": 0,
+        "rolloutStatus": "Progressing"
+      }
+    },
+    {
+      "canonicalId": "demo-cluster/apps/Workload/ontology-demo/ReplicaSet:checkout-api-7b9d9f7d4d/rs-uid/_",
+      "kind": "Workload",
+      "sourceKind": "ReplicaSet",
+      "name": "checkout-api-7b9d9f7d4d",
+      "namespace": "ontology-demo",
+      "attributes": {
+        "replicas": 1,
+        "readyReplicas": 0
+      }
+    },
+    {
+      "canonicalId": "demo-cluster/core/Pod/ontology-demo/checkout-api-7b9d9f7d4d-x2k8m/pod-uid/_",
+      "kind": "Pod",
+      "sourceKind": "Pod",
+      "name": "checkout-api-7b9d9f7d4d-x2k8m",
+      "namespace": "ontology-demo",
+      "attributes": {
+        "phase": "Pending",
+        "reason": "ImagePullBackOff"
+      }
+    },
+    {
+      "canonicalId": "demo-cluster/core/Node/_/worker-a/node-uid/_",
+      "kind": "Node",
+      "sourceKind": "Node",
+      "name": "worker-a",
+      "attributes": {
+        "zone": "demo-a"
+      }
+    },
+    {
+      "canonicalId": "demo-cluster/core/Service/ontology-demo/checkout-api/service-uid/_",
+      "kind": "Service",
+      "sourceKind": "Service",
+      "name": "checkout-api",
+      "namespace": "ontology-demo",
+      "attributes": {
+        "type": "ClusterIP"
+      }
+    },
+    {
+      "canonicalId": "demo-cluster/core/ConfigMap/ontology-demo/checkout-config/configmap-uid/_",
+      "kind": "ConfigMap",
+      "sourceKind": "ConfigMap",
+      "name": "checkout-config",
+      "namespace": "ontology-demo"
+    },
+    {
+      "canonicalId": "demo-cluster/core/ServiceAccount/ontology-demo/checkout-api/sa-uid/_",
+      "kind": "ServiceAccount",
+      "sourceKind": "ServiceAccount",
+      "name": "checkout-api",
+      "namespace": "ontology-demo"
+    },
+    {
+      "canonicalId": "demo-cluster/rbac.authorization.k8s.io/RoleBinding/ontology-demo/checkout-reader/rb-uid/_",
+      "kind": "RoleBinding",
+      "sourceKind": "RoleBinding",
+      "name": "checkout-reader",
+      "namespace": "ontology-demo",
+      "attributes": {
+        "roleRefKind": "Role",
+        "roleRefName": "checkout-reader"
+      }
+    },
+    {
+      "canonicalId": "demo-cluster/core/Image/_/ghcr.io_colvin-y_kubernetes-ontology-demo:missing-tag/_/_",
+      "kind": "Image",
+      "sourceKind": "Image",
+      "name": "ghcr.io/colvin-y/kubernetes-ontology-demo:missing-tag",
+      "attributes": {
+        "repo": "ghcr.io/colvin-y/kubernetes-ontology-demo",
+        "tag": "missing-tag"
+      }
+    },
+    {
+      "canonicalId": "demo-cluster/core/Event/ontology-demo/checkout-api-7b9d9f7d4d-x2k8m.17d4b9a1/event-uid/_",
+      "kind": "Event",
+      "sourceKind": "Event",
+      "name": "checkout-api-7b9d9f7d4d-x2k8m.17d4b9a1",
+      "namespace": "ontology-demo",
+      "attributes": {
+        "reason": "Failed",
+        "message": "Failed to pull image \"ghcr.io/colvin-y/kubernetes-ontology-demo:missing-tag\": image not found"
+      }
+    },
+    {
+      "canonicalId": "demo-cluster/core/Event/ontology-demo/checkout-api-7b9d9f7d4d-x2k8m.17d4b9a2/event-uid/_",
+      "kind": "Event",
+      "sourceKind": "Event",
+      "name": "checkout-api-7b9d9f7d4d-x2k8m.17d4b9a2",
+      "namespace": "ontology-demo",
+      "attributes": {
+        "reason": "BackOff",
+        "message": "Back-off pulling image \"ghcr.io/colvin-y/kubernetes-ontology-demo:missing-tag\""
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "demo-cluster/apps/Workload/ontology-demo/Deployment:checkout-api/deploy-uid/_",
+      "to": "demo-cluster/apps/Workload/ontology-demo/ReplicaSet:checkout-api-7b9d9f7d4d/rs-uid/_",
+      "kind": "controlled_by",
+      "provenance": {
+        "sourceType": "owner_reference",
+        "state": "asserted",
+        "resolver": "owner-chain/v1"
+      }
+    },
+    {
+      "from": "demo-cluster/apps/Workload/ontology-demo/ReplicaSet:checkout-api-7b9d9f7d4d/rs-uid/_",
+      "to": "demo-cluster/apps/Workload/ontology-demo/Deployment:checkout-api/deploy-uid/_",
+      "kind": "managed_by",
+      "provenance": {
+        "sourceType": "owner_reference",
+        "state": "asserted",
+        "resolver": "owner-chain/v1"
+      }
+    },
+    {
+      "from": "demo-cluster/apps/Workload/ontology-demo/ReplicaSet:checkout-api-7b9d9f7d4d/rs-uid/_",
+      "to": "demo-cluster/core/Pod/ontology-demo/checkout-api-7b9d9f7d4d-x2k8m/pod-uid/_",
+      "kind": "owns_pod",
+      "provenance": {
+        "sourceType": "owner_reference",
+        "state": "asserted",
+        "resolver": "owner-chain/v1"
+      }
+    },
+    {
+      "from": "demo-cluster/core/Pod/ontology-demo/checkout-api-7b9d9f7d4d-x2k8m/pod-uid/_",
+      "to": "demo-cluster/apps/Workload/ontology-demo/ReplicaSet:checkout-api-7b9d9f7d4d/rs-uid/_",
+      "kind": "managed_by",
+      "provenance": {
+        "sourceType": "owner_reference",
+        "state": "asserted",
+        "resolver": "owner-chain/v1"
+      }
+    },
+    {
+      "from": "demo-cluster/core/Pod/ontology-demo/checkout-api-7b9d9f7d4d-x2k8m/pod-uid/_",
+      "to": "demo-cluster/core/Node/_/worker-a/node-uid/_",
+      "kind": "scheduled_on",
+      "provenance": {
+        "sourceType": "explicit_ref",
+        "state": "asserted",
+        "resolver": "pod-spec-node/v1"
+      }
+    },
+    {
+      "from": "demo-cluster/core/Service/ontology-demo/checkout-api/service-uid/_",
+      "to": "demo-cluster/core/Pod/ontology-demo/checkout-api-7b9d9f7d4d-x2k8m/pod-uid/_",
+      "kind": "selects_pod",
+      "provenance": {
+        "sourceType": "selector_match",
+        "state": "asserted",
+        "resolver": "service-selector/v1"
+      }
+    },
+    {
+      "from": "demo-cluster/core/Pod/ontology-demo/checkout-api-7b9d9f7d4d-x2k8m/pod-uid/_",
+      "to": "demo-cluster/core/ConfigMap/ontology-demo/checkout-config/configmap-uid/_",
+      "kind": "uses_config_map",
+      "provenance": {
+        "sourceType": "explicit_ref",
+        "state": "asserted",
+        "resolver": "pod-config/v1"
+      }
+    },
+    {
+      "from": "demo-cluster/core/Pod/ontology-demo/checkout-api-7b9d9f7d4d-x2k8m/pod-uid/_",
+      "to": "demo-cluster/core/ServiceAccount/ontology-demo/checkout-api/sa-uid/_",
+      "kind": "uses_service_account",
+      "provenance": {
+        "sourceType": "explicit_ref",
+        "state": "asserted",
+        "resolver": "pod-service-account/v1"
+      }
+    },
+    {
+      "from": "demo-cluster/core/ServiceAccount/ontology-demo/checkout-api/sa-uid/_",
+      "to": "demo-cluster/rbac.authorization.k8s.io/RoleBinding/ontology-demo/checkout-reader/rb-uid/_",
+      "kind": "bound_by_role_binding",
+      "provenance": {
+        "sourceType": "binding_resolution",
+        "state": "asserted",
+        "resolver": "rbac-binding/v1"
+      }
+    },
+    {
+      "from": "demo-cluster/core/Pod/ontology-demo/checkout-api-7b9d9f7d4d-x2k8m/pod-uid/_",
+      "to": "demo-cluster/core/Image/_/ghcr.io_colvin-y_kubernetes-ontology-demo:missing-tag/_/_",
+      "kind": "uses_image",
+      "provenance": {
+        "sourceType": "explicit_ref",
+        "state": "asserted",
+        "resolver": "container-image/v1"
+      }
+    },
+    {
+      "from": "demo-cluster/core/Event/ontology-demo/checkout-api-7b9d9f7d4d-x2k8m.17d4b9a1/event-uid/_",
+      "to": "demo-cluster/core/Pod/ontology-demo/checkout-api-7b9d9f7d4d-x2k8m/pod-uid/_",
+      "kind": "reported_by_event",
+      "provenance": {
+        "sourceType": "explicit_ref",
+        "state": "asserted",
+        "resolver": "event-involved-object/v1"
+      }
+    },
+    {
+      "from": "demo-cluster/core/Event/ontology-demo/checkout-api-7b9d9f7d4d-x2k8m.17d4b9a2/event-uid/_",
+      "to": "demo-cluster/core/Pod/ontology-demo/checkout-api-7b9d9f7d4d-x2k8m/pod-uid/_",
+      "kind": "reported_by_event",
+      "provenance": {
+        "sourceType": "explicit_ref",
+        "state": "asserted",
+        "resolver": "event-involved-object/v1"
+      }
+    }
+  ],
+  "collectedAt": "2026-04-28T00:00:00Z",
+  "explanation": [
+    "Demo pod is Pending because the configured container image cannot be pulled.",
+    "The graph keeps workload ownership, service selector, config, service account, RBAC binding, node placement, image, and event evidence in one diagnostic view."
+  ]
+}

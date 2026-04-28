@@ -984,7 +984,9 @@
 
     function hydrateFromQuery() {
       const params = new URLSearchParams(window.location.search);
-      if (el.serverUrl.value === '__ONTOLOGY_SERVER__') el.serverUrl.value = 'http://127.0.0.1:18080';
+      if (el.serverUrl.value.startsWith('__ONTOLOGY_') && el.serverUrl.value.endsWith('_SERVER__')) {
+        el.serverUrl.value = 'http://127.0.0.1:18080';
+      }
       if (params.get('server')) el.serverUrl.value = params.get('server');
       if (params.get('namespace')) {
         el.namespaceInput.value = params.get('namespace');
