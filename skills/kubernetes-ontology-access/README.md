@@ -23,6 +23,11 @@ npx skills add Colvin-Y/kubernetes-ontology -s kubernetes-ontology-access -g --a
 
 Restart your agent after installation so it discovers the new skill.
 
+These marketplace-facing commands intentionally track the repository's default
+branch. Use the latest release tag for daemon, CLI, viewer, image, and Helm
+runtime versions, but let the skill content follow the newest onboarding
+workflow.
+
 ## Usage
 
 Example prompts:
