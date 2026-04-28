@@ -29,6 +29,13 @@ controllerRules:
       - kruise-controller-manager
     nodeDaemonPodPrefixes:
       - kruise-daemon
+csiComponentRules:
+  - driver: diskplugin.csi.alibabacloud.com
+    namespace: kube-system
+    controllerPodPrefixes:
+      - csi-provisioner-
+    nodeAgentPodPrefixes:
+      - csi-plugin-
 server:
   addr: 127.0.0.1:18080
   url: http://127.0.0.1:18080
@@ -64,6 +71,12 @@ storageMaxDepth: 6
 	}
 	if cfg.ControllerRules[0].APIVersion != "apps.kruise.io/*" || cfg.ControllerRules[0].ControllerNamespace != "kruise-system" {
 		t.Fatalf("unexpected controller rule: %#v", cfg.ControllerRules[0])
+	}
+	if got := len(cfg.CSIComponentRules); got != 1 {
+		t.Fatalf("csi component rule count = %d, want 1", got)
+	}
+	if cfg.CSIComponentRules[0].Driver != "diskplugin.csi.alibabacloud.com" || cfg.CSIComponentRules[0].ComponentNamespace != "kube-system" {
+		t.Fatalf("unexpected csi component rule: %#v", cfg.CSIComponentRules[0])
 	}
 	if cfg.Server.Addr != "127.0.0.1:18080" || cfg.Server.URL != "http://127.0.0.1:18080" {
 		t.Fatalf("unexpected server config: %#v", cfg.Server)

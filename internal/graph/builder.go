@@ -22,15 +22,21 @@ type Builder struct {
 }
 
 func NewBuilder(cluster string) *Builder {
+	csiComponentRules := infer.EffectiveCSIComponentRules(nil)
 	return &Builder{
 		cluster:           cluster,
-		csiCorrelator:     infer.NewRegistry(infer.OpenLocalCorrelator{}),
-		csiComponentRules: infer.DefaultCSIComponentRules(),
+		csiCorrelator:     infer.NewCSIComponentRegistry(csiComponentRules),
+		csiComponentRules: csiComponentRules,
 	}
 }
 
 func (b *Builder) SetWorkloadControllerRules(rules []infer.WorkloadControllerRule) {
 	b.controllerRules = rules
+}
+
+func (b *Builder) SetCSIComponentRules(rules []infer.CSIComponentRule) {
+	b.csiComponentRules = infer.EffectiveCSIComponentRules(rules)
+	b.csiCorrelator = infer.NewCSIComponentRegistry(b.csiComponentRules)
 }
 
 func (b *Builder) Build(snapshot k8s.Snapshot) ([]model.Node, []model.Edge) {
@@ -290,7 +296,7 @@ func (b *Builder) Build(snapshot k8s.Snapshot) ([]model.Node, []model.Edge) {
 
 	infraPods := make([]model.Node, 0)
 	for _, node := range nodes {
-		if node.Kind == model.NodeKindPod && node.Namespace == "kube-system" {
+		if node.Kind == model.NodeKindPod {
 			infraPods = append(infraPods, node)
 		}
 	}

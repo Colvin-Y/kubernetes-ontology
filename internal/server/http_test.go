@@ -142,6 +142,24 @@ func TestDiagnosticRejectsInvalidDepth(t *testing.T) {
 	}
 }
 
+func TestDiagnosticGenericEndpointPassesKind(t *testing.T) {
+	var entryNodeKind string
+	server := httptest.NewServer(NewHandler(stubRuntime{capturedEntryNodeKind: &entryNodeKind}))
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + "/diagnostic?kind=PVC&namespace=default&name=data")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+	if entryNodeKind != "PVC" {
+		t.Fatalf("expected PVC entry kind, got %q", entryNodeKind)
+	}
+}
+
 func TestExpandReturnsSubgraph(t *testing.T) {
 	client := fake.NewSimpleClientset(
 		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "frontend", Namespace: "default", UID: "p1"}, Spec: corev1.PodSpec{NodeName: "node-a"}},
@@ -259,9 +277,10 @@ func getJSON(t *testing.T, url string, out any) {
 }
 
 type stubRuntime struct {
-	diagnosticErr   error
-	waitForContext  bool
-	capturedOptions *query.DiagnosticOptions
+	diagnosticErr         error
+	waitForContext        bool
+	capturedOptions       *query.DiagnosticOptions
+	capturedEntryNodeKind *string
 }
 
 func (s stubRuntime) RuntimeStatus() query.RuntimeStatus {
@@ -273,6 +292,9 @@ func (s stubRuntime) Ontology() ontology.Backend {
 }
 
 func (s stubRuntime) QueryDiagnosticSubgraph(ctx context.Context, entryKind, namespace, name string, options query.DiagnosticOptions) (api.DiagnosticSubgraph, error) {
+	if s.capturedEntryNodeKind != nil {
+		*s.capturedEntryNodeKind = entryKind
+	}
 	if s.capturedOptions != nil {
 		*s.capturedOptions = options
 	}

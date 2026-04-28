@@ -30,3 +30,9 @@ data:
     {{- else }}
     controllerRules: []
     {{- end }}
+    {{- if .Values.csiComponentRules }}
+    csiComponentRules:
+      {{- toYaml .Values.csiComponentRules | nindent 6 }}
+    {{- else }}
+    csiComponentRules: []
+    {{- end }}

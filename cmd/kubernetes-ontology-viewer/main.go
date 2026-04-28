@@ -154,14 +154,10 @@ func (h *handler) serveTopology(w http.ResponseWriter, r *http.Request) {
 func (h *handler) serveDiagnostic(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	server := first(q, "server", h.defaultServer)
-	kind := strings.ToLower(first(q, "kind", "Pod"))
-	if kind != "pod" && kind != "workload" {
-		writeJSON(w, map[string]string{"error": "kind must be pod or workload"}, http.StatusBadRequest)
-		return
-	}
+	kind := first(q, "kind", "Pod")
 	namespace := first(q, "namespace", "")
 	name := first(q, "name", "")
-	if namespace == "" {
+	if namespace == "" && (strings.EqualFold(kind, "Pod") || strings.EqualFold(kind, "Workload")) {
 		writeJSON(w, map[string]string{"error": "namespace is required"}, http.StatusBadRequest)
 		return
 	}
@@ -171,7 +167,10 @@ func (h *handler) serveDiagnostic(w http.ResponseWriter, r *http.Request) {
 	}
 
 	params := url.Values{}
-	params.Set("namespace", namespace)
+	params.Set("kind", kind)
+	if namespace != "" {
+		params.Set("namespace", namespace)
+	}
 	params.Set("name", name)
 	params.Set("maxDepth", first(q, "maxDepth", "2"))
 	params.Set("storageMaxDepth", first(q, "storageMaxDepth", "5"))
@@ -182,7 +181,7 @@ func (h *handler) serveDiagnostic(w http.ResponseWriter, r *http.Request) {
 		params.Set("expandTerminalNodes", expandTerminalNodes)
 	}
 
-	data, err := h.fetchJSON(r.Context(), server, "/diagnostic/"+kind+"?"+params.Encode())
+	data, err := h.fetchJSON(r.Context(), server, "/diagnostic?"+params.Encode())
 	if err != nil {
 		h.writeUpstreamError(w, err)
 		return

@@ -408,7 +408,7 @@
     <rdfs:range rdf:resource="#Pod"/>
     <ko:defaultSourceType>inference_rule</ko:defaultSourceType>
     <ko:defaultState>inferred</ko:defaultState>
-    <ko:resolverHint>csi-component-rule/local.csi.aliyun.com/v1</ko:resolverHint>
+    <ko:resolverHint>csi-component-rule/&lt;driver&gt;/v1</ko:resolverHint>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#implemented_by_csi_node_agent">
     <rdfs:label>implemented_by_csi_node_agent</rdfs:label>
@@ -418,7 +418,7 @@
     <rdfs:range rdf:resource="#Pod"/>
     <ko:defaultSourceType>inference_rule</ko:defaultSourceType>
     <ko:defaultState>inferred</ko:defaultState>
-    <ko:resolverHint>csi-component-rule/local.csi.aliyun.com/v1</ko:resolverHint>
+    <ko:resolverHint>csi-component-rule/&lt;driver&gt;/v1</ko:resolverHint>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#served_by_csi_node_agent">
     <rdfs:label>served_by_csi_node_agent</rdfs:label>
@@ -428,7 +428,7 @@
     <rdfs:range rdf:resource="#Pod"/>
     <ko:defaultSourceType>inference_rule</ko:defaultSourceType>
     <ko:defaultState>inferred</ko:defaultState>
-    <ko:resolverHint>csi-open-local-agent/v1</ko:resolverHint>
+    <ko:resolverHint>csi-component-rule/&lt;driver&gt;/pv-agent/v1</ko:resolverHint>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#managed_by_csi_controller">
     <rdfs:label>managed_by_csi_controller</rdfs:label>
@@ -438,7 +438,7 @@
     <rdfs:range rdf:resource="#Pod"/>
     <ko:defaultSourceType>inference_rule</ko:defaultSourceType>
     <ko:defaultState>inferred</ko:defaultState>
-    <ko:resolverHint>csi-open-local-controller/v1</ko:resolverHint>
+    <ko:resolverHint>csi-component-rule/&lt;driver&gt;/pv-controller/v1</ko:resolverHint>
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#related_to">
     <rdfs:label>related_to</rdfs:label>

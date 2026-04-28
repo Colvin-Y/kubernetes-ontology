@@ -25,7 +25,7 @@ func TestStorageReconcilerMatchesFullRebuildStorageEdges(t *testing.T) {
 	if result.UpsertedPVCs != 1 || result.UpsertedPVs != 1 || result.UpsertedStorageClasses != 1 || result.UpsertedCSIDrivers != 1 {
 		t.Fatalf("expected one storage resource upsert, got pvc=%d pv=%d sc=%d driver=%d", result.UpsertedPVCs, result.UpsertedPVs, result.UpsertedStorageClasses, result.UpsertedCSIDrivers)
 	}
-	if result.UpsertedEdges != 9 {
+	if result.UpsertedEdges != 5 {
 		t.Fatalf("expected full storage topology edges, got %d", result.UpsertedEdges)
 	}
 

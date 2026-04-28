@@ -40,6 +40,28 @@ controllerRules:
     nodeDaemonPodPrefixes:
       - kruise-daemon
 
+# CSI component inference rules. Add each cluster-specific CSI driver that
+# should be linked to its controller and node-agent Pods.
+csiComponentRules:
+  - driver: local.csi.aliyun.com
+    namespace: kube-system
+    controllerPodPrefixes:
+      - open-local-controller-
+      - open-local-scheduler-
+    nodeAgentPodPrefixes:
+      - open-local-agent-
+  - driver: bytedrive.csi.bytedance.com
+    namespace: bd-csi
+    controllerPodPrefixes:
+      - csi-bytedrive-snapshotter-
+      - csi-resizer-
+      - snapshot-controller-
+      - bd-provisioner-
+    nodeAgentPodPrefixes:
+      - bd-registrar-
+      - bd-csidaemon-
+      - bd-csi-
+
 server:
   addr: 127.0.0.1:18080
   url: http://127.0.0.1:18080

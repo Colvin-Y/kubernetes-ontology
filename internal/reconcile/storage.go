@@ -30,11 +30,16 @@ type StorageReconciler struct {
 }
 
 func NewStorageReconciler(cluster string, kernel *graph.Kernel) *StorageReconciler {
+	return NewStorageReconcilerWithCSIComponentRules(cluster, kernel, nil)
+}
+
+func NewStorageReconcilerWithCSIComponentRules(cluster string, kernel *graph.Kernel, rules []infer.CSIComponentRule) *StorageReconciler {
+	effectiveRules := infer.EffectiveCSIComponentRules(rules)
 	return &StorageReconciler{
 		cluster: cluster,
 		kernel:  kernel,
-		csi:     infer.NewRegistry(infer.OpenLocalCorrelator{}),
-		rules:   infer.DefaultCSIComponentRules(),
+		csi:     infer.NewCSIComponentRegistry(effectiveRules),
+		rules:   effectiveRules,
 	}
 }
 
@@ -407,9 +412,6 @@ func storageClassNameForPVC(pvc resources.PVC, pvs []resources.PV) string {
 func storageInfraPods(cluster string, snapshot collectk8s.Snapshot) []model.Node {
 	out := make([]model.Node, 0)
 	for _, pod := range snapshot.Pods {
-		if pod.Metadata.Namespace != "kube-system" {
-			continue
-		}
 		id := model.NewCanonicalID(model.ResourceRef{Cluster: cluster, Group: "core", Kind: "Pod", Namespace: pod.Metadata.Namespace, Name: pod.Metadata.Name, UID: pod.Metadata.UID})
 		out = append(out, model.Node{
 			ID:         id,

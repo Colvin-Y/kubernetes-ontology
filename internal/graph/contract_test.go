@@ -43,7 +43,7 @@ func TestPodFixtureContract(t *testing.T) {
 	}
 
 	service := diagnostic.NewService(kernel)
-	result, err := service.GetDiagnosticSubgraph(api.EntryRef{Kind: api.EntryKindPod, CanonicalID: "cluster-a/core/Pod/default/frontend-abc123/pod-uid/_", Namespace: "default", Name: "frontend-abc123"}, diagnostic.DefaultExpansionPolicy())
+	result, err := service.GetDiagnosticSubgraph(api.EntryRef{Kind: api.NodeKindPod, CanonicalID: "cluster-a/core/Pod/default/frontend-abc123/pod-uid/_", Namespace: "default", Name: "frontend-abc123"}, diagnostic.DefaultExpansionPolicy())
 	if err != nil {
 		t.Fatal(err)
 	}

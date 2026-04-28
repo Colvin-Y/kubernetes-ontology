@@ -134,26 +134,41 @@ func (f *Facade) RuntimeStatus() RuntimeStatus {
 }
 
 func (f *Facade) FindEntryID(entryKind, namespace, name string) (string, error) {
-	if namespace == "" || name == "" {
-		return "", fmt.Errorf("%w: namespace and name are required", ErrInvalidDiagnosticQuery)
+	if name == "" {
+		return "", fmt.Errorf("%w: name is required", ErrInvalidDiagnosticQuery)
 	}
-	switch entryKind {
-	case "Pod":
+	normalizedKind, ok := normalizeNodeKind(entryKind)
+	if !ok {
+		return "", fmt.Errorf("%w: unsupported entry kind %q", ErrInvalidDiagnosticQuery, entryKind)
+	}
+	switch normalizedKind {
+	case api.NodeKindPod:
 		for _, pod := range f.snapshot.Pods {
 			if pod.Metadata.Namespace == namespace && pod.Metadata.Name == name {
 				return model.NewCanonicalID(model.ResourceRef{Cluster: f.cluster, Group: "core", Kind: "Pod", Namespace: namespace, Name: name, UID: pod.Metadata.UID}).String(), nil
 			}
 		}
-	case "Workload":
+	case api.NodeKindWorkload:
 		for _, workload := range f.snapshot.Workloads {
 			if workload.Metadata.Namespace == namespace && workload.Metadata.Name == name {
 				return model.WorkloadID(f.cluster, namespace, workload.ControllerKind, name, workload.Metadata.UID).String(), nil
 			}
 		}
-	default:
-		return "", fmt.Errorf("%w: unsupported entry kind %q", ErrInvalidDiagnosticQuery, entryKind)
 	}
-	return "", fmt.Errorf("%w: kind=%s namespace=%s name=%s", ErrDiagnosticEntryNotFound, entryKind, namespace, name)
+	if f.Diagnostic != nil {
+		lookupNamespace := namespace
+		if !isNamespacedDiagnosticKind(normalizedKind) {
+			lookupNamespace = ""
+		}
+		node, found, ambiguous := f.Diagnostic.FindNode(model.NodeKind(normalizedKind), lookupNamespace, name)
+		if ambiguous {
+			return "", fmt.Errorf("%w: kind=%s name=%s matched multiple nodes; set namespace", ErrInvalidDiagnosticQuery, normalizedKind, name)
+		}
+		if found {
+			return node.ID.String(), nil
+		}
+	}
+	return "", fmt.Errorf("%w: kind=%s namespace=%s name=%s", ErrDiagnosticEntryNotFound, normalizedKind, namespace, name)
 }
 
 func (f *Facade) DiagnosticPolicy(options DiagnosticOptions) api.ExpansionPolicy {
@@ -174,6 +189,16 @@ func (f *Facade) DiagnosticPolicy(options DiagnosticOptions) api.ExpansionPolicy
 }
 
 func normalizeNodeKind(raw string) (api.NodeKind, bool) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "persistentvolumeclaim", "persistentvolumeclaims":
+		return api.NodeKindPVC, true
+	case "persistentvolume", "persistentvolumes":
+		return api.NodeKindPV, true
+	case "storageclasses":
+		return api.NodeKindStorageClass, true
+	case "csidrivers":
+		return api.NodeKindCSIDriver, true
+	}
 	kinds := []api.NodeKind{
 		api.NodeKindCluster,
 		api.NodeKindNamespace,
@@ -204,6 +229,15 @@ func normalizeNodeKind(raw string) (api.NodeKind, bool) {
 	return "", false
 }
 
+func isNamespacedDiagnosticKind(kind api.NodeKind) bool {
+	switch kind {
+	case api.NodeKindPV, api.NodeKindStorageClass, api.NodeKindCSIDriver, api.NodeKindCluster, api.NodeKindNode, api.NodeKindClusterRoleBinding, api.NodeKindWebhookConfig, api.NodeKindImage, api.NodeKindOCIArtifactMetadata:
+		return false
+	default:
+		return true
+	}
+}
+
 func (f *Facade) QueryDiagnosticSubgraph(entryKind, namespace, name string, options DiagnosticOptions) (api.DiagnosticSubgraph, error) {
 	return f.QueryDiagnosticSubgraphContext(context.Background(), entryKind, namespace, name, options)
 }
@@ -212,15 +246,23 @@ func (f *Facade) QueryDiagnosticSubgraphContext(ctx context.Context, entryKind, 
 	if err := ValidateDiagnosticOptions(options); err != nil {
 		return api.DiagnosticSubgraph{}, err
 	}
+	normalizedKind, ok := normalizeNodeKind(entryKind)
+	if !ok {
+		return api.DiagnosticSubgraph{}, fmt.Errorf("%w: unsupported entry kind %q", ErrInvalidDiagnosticQuery, entryKind)
+	}
 	entryID, err := f.FindEntryID(entryKind, namespace, name)
 	if err != nil {
 		return api.DiagnosticSubgraph{}, err
 	}
+	entryNamespace := namespace
+	if !isNamespacedDiagnosticKind(normalizedKind) {
+		entryNamespace = ""
+	}
 
 	result, err := f.Diagnostic.GetDiagnosticSubgraphContext(ctx, api.EntryRef{
-		Kind:        api.EntryKind(entryKind),
+		Kind:        normalizedKind,
 		CanonicalID: entryID,
-		Namespace:   namespace,
+		Namespace:   entryNamespace,
 		Name:        name,
 	}, f.DiagnosticPolicy(options))
 	if err != nil {

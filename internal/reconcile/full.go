@@ -18,13 +18,23 @@ type FullReconciler struct {
 	builder *graph.Builder
 }
 
+type FullReconcilerOptions struct {
+	WorkloadControllerRules []infer.WorkloadControllerRule
+	CSIComponentRules       []infer.CSIComponentRule
+}
+
 func NewFullReconciler(cluster string) *FullReconciler {
 	return &FullReconciler{cluster: cluster, builder: graph.NewBuilder(cluster)}
 }
 
 func NewFullReconcilerWithControllerRules(cluster string, rules []infer.WorkloadControllerRule) *FullReconciler {
+	return NewFullReconcilerWithOptions(cluster, FullReconcilerOptions{WorkloadControllerRules: rules})
+}
+
+func NewFullReconcilerWithOptions(cluster string, options FullReconcilerOptions) *FullReconciler {
 	builder := graph.NewBuilder(cluster)
-	builder.SetWorkloadControllerRules(rules)
+	builder.SetWorkloadControllerRules(options.WorkloadControllerRules)
+	builder.SetCSIComponentRules(options.CSIComponentRules)
 	return &FullReconciler{cluster: cluster, builder: builder}
 }
 

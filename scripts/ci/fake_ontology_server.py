@@ -72,6 +72,24 @@ def graph_response(entry):
     }
 
 
+def diagnostic_entry(kind):
+    if kind == "Pod":
+        return {
+            "kind": "Pod",
+            "canonicalId": POD_ID,
+            "namespace": "default",
+            "name": "frontend",
+        }
+    if kind == "Workload":
+        return {
+            "kind": "Workload",
+            "canonicalId": WORKLOAD_ID,
+            "namespace": "default",
+            "name": "frontend",
+        }
+    return None
+
+
 def error_response(status_code, code, message, retryable=False):
     return {
         "error": message,
@@ -134,21 +152,21 @@ class Handler(BaseHTTPRequestHandler):
                 "freshness": FRESHNESS,
             })
             return
+        if path == "/diagnostic":
+            entry = diagnostic_entry(first(qs, "kind"))
+            if entry is None:
+                self.write_json(
+                    error_response(400, "bad_request", "unsupported diagnostic kind"),
+                    status_code=400,
+                )
+                return
+            self.write_json(graph_response(entry))
+            return
         if path == "/diagnostic/pod":
-            self.write_json(graph_response({
-                "kind": "Pod",
-                "canonicalId": POD_ID,
-                "namespace": "default",
-                "name": "frontend",
-            }))
+            self.write_json(graph_response(diagnostic_entry("Pod")))
             return
         if path == "/diagnostic/workload":
-            self.write_json(graph_response({
-                "kind": "Workload",
-                "canonicalId": WORKLOAD_ID,
-                "namespace": "default",
-                "name": "frontend",
-            }))
+            self.write_json(graph_response(diagnostic_entry("Workload")))
             return
 
         self.write_json(error_response(404, "not_found", "not found"), status_code=404)

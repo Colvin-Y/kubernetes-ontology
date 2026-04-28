@@ -273,7 +273,7 @@ var relationSpecs = []RelationSpec{
 		Range:             string(NodeKindPod),
 		DefaultSourceType: EdgeSourceTypeInferenceRule,
 		DefaultState:      EdgeStateInferred,
-		ResolverHints:     []string{"csi-component-rule/local.csi.aliyun.com/v1"},
+		ResolverHints:     []string{"csi-component-rule/<driver>/v1"},
 	},
 	{
 		Kind:              EdgeKindImplementedByCSINodeAgent,
@@ -282,7 +282,7 @@ var relationSpecs = []RelationSpec{
 		Range:             string(NodeKindPod),
 		DefaultSourceType: EdgeSourceTypeInferenceRule,
 		DefaultState:      EdgeStateInferred,
-		ResolverHints:     []string{"csi-component-rule/local.csi.aliyun.com/v1"},
+		ResolverHints:     []string{"csi-component-rule/<driver>/v1"},
 	},
 	{
 		Kind:              EdgeKindServedByCSINodeAgent,
@@ -291,7 +291,7 @@ var relationSpecs = []RelationSpec{
 		Range:             string(NodeKindPod),
 		DefaultSourceType: EdgeSourceTypeInferenceRule,
 		DefaultState:      EdgeStateInferred,
-		ResolverHints:     []string{"csi-open-local-agent/v1"},
+		ResolverHints:     []string{"csi-component-rule/<driver>/pv-agent/v1"},
 	},
 	{
 		Kind:              EdgeKindManagedByCSIController,
@@ -300,7 +300,7 @@ var relationSpecs = []RelationSpec{
 		Range:             string(NodeKindPod),
 		DefaultSourceType: EdgeSourceTypeInferenceRule,
 		DefaultState:      EdgeStateInferred,
-		ResolverHints:     []string{"csi-open-local-controller/v1"},
+		ResolverHints:     []string{"csi-component-rule/<driver>/pv-controller/v1"},
 	},
 	{
 		Kind:              EdgeKindRelatedTo,

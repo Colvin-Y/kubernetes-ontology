@@ -14,7 +14,7 @@ func TestDefaultExpansionStopsAtTerminalSharedNodes(t *testing.T) {
 	policy := DefaultExpansionPolicy()
 	policy.MaxDepth = 2
 
-	result, err := service.GetDiagnosticSubgraph(api.EntryRef{Kind: api.EntryKindPod, CanonicalID: podA.ID.String()}, policy)
+	result, err := service.GetDiagnosticSubgraph(api.EntryRef{Kind: api.NodeKindPod, CanonicalID: podA.ID.String()}, policy)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestExpansionCanTraverseTerminalNodes(t *testing.T) {
 	policy.MaxDepth = 2
 	policy.ExpandTerminalNodes = true
 
-	result, err := service.GetDiagnosticSubgraph(api.EntryRef{Kind: api.EntryKindPod, CanonicalID: podA.ID.String()}, policy)
+	result, err := service.GetDiagnosticSubgraph(api.EntryRef{Kind: api.NodeKindPod, CanonicalID: podA.ID.String()}, policy)
 	if err != nil {
 		t.Fatal(err)
 	}

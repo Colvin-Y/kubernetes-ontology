@@ -3,7 +3,6 @@ package diagnostic
 import (
 	"context"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/Colvin-Y/kubernetes-ontology/internal/api"
@@ -54,8 +53,8 @@ func (s *Service) GetDiagnosticSubgraph(entry api.EntryRef, policy api.Expansion
 }
 
 func (s *Service) GetDiagnosticSubgraphContext(ctx context.Context, entry api.EntryRef, policy api.ExpansionPolicy) (api.DiagnosticSubgraph, error) {
-	if entry.Kind != api.EntryKindPod && entry.Kind != api.EntryKindWorkload {
-		return api.DiagnosticSubgraph{}, errors.New("unsupported entry kind")
+	if entry.Kind == "" {
+		return api.DiagnosticSubgraph{}, errors.New("entry kind is required")
 	}
 	if entry.CanonicalID == "" {
 		return api.DiagnosticSubgraph{}, errors.New("canonical entry id is required for phase-1 service")
@@ -94,14 +93,14 @@ func (s *Service) GetDiagnosticSubgraphContext(ctx context.Context, entry api.En
 				return api.DiagnosticSubgraph{}, err
 			}
 			currentNode, currentOK := s.kernel.GetNode(current)
-			if currentOK && isTerminalNode(currentNode, rootID, rootNode.Kind, terminalKinds, policy.ExpandTerminalNodes) {
+			if currentOK && s.isTerminalNode(currentNode, rootID, rootNode.Kind, terminalKinds, policy.ExpandTerminalNodes) {
 				continue
 			}
 			for _, edge := range s.kernel.Neighbors(current) {
 				if err := ctx.Err(); err != nil {
 					return api.DiagnosticSubgraph{}, err
 				}
-				if !shouldTraverse(edge.Kind, depth, policy) {
+				if !shouldTraverseFrom(current, currentNode, currentOK, edge, depth, policy) {
 					continue
 				}
 				if _, seen := seenEdges[edge.Key()]; !seen {
@@ -142,7 +141,7 @@ func (s *Service) GetDiagnosticSubgraphByPod(namespace, name string, policy api.
 			continue
 		}
 		entry := api.EntryRef{
-			Kind:        api.EntryKindPod,
+			Kind:        api.NodeKindPod,
 			CanonicalID: node.ID.String(),
 			Namespace:   namespace,
 			Name:        name,
@@ -150,6 +149,28 @@ func (s *Service) GetDiagnosticSubgraphByPod(namespace, name string, policy api.
 		return s.GetDiagnosticSubgraph(entry, policy)
 	}
 	return api.DiagnosticSubgraph{}, errors.New("pod entry not found")
+}
+
+func (s *Service) FindNode(kind model.NodeKind, namespace, name string) (model.Node, bool, bool) {
+	if s == nil || s.kernel == nil || name == "" {
+		return model.Node{}, false, false
+	}
+	var found model.Node
+	ok := false
+	for _, node := range s.kernel.ListNodes() {
+		if node.Kind != kind || node.Name != name {
+			continue
+		}
+		if namespace != "" && node.Namespace != namespace {
+			continue
+		}
+		if ok {
+			return model.Node{}, false, true
+		}
+		found = node
+		ok = true
+	}
+	return found, ok, false
 }
 
 func toAPINode(node model.Node) api.DiagnosticNode {
@@ -215,6 +236,25 @@ func shouldTraverse(kind model.EdgeKind, depth int, policy api.ExpansionPolicy) 
 	return depth < policy.MaxDepth
 }
 
+func shouldTraverseFrom(current model.CanonicalID, currentNode model.Node, currentOK bool, edge model.Edge, depth int, policy api.ExpansionPolicy) bool {
+	if !shouldTraverse(edge.Kind, depth, policy) {
+		return false
+	}
+	if !currentOK {
+		return true
+	}
+	switch currentNode.Kind {
+	case model.NodeKindStorageClass:
+		return edge.From == current && edge.Kind == model.EdgeKindProvisionedByCSIDriver
+	case model.NodeKindCSIDriver:
+		return edge.From == current &&
+			(edge.Kind == model.EdgeKindImplementedByCSIController ||
+				edge.Kind == model.EdgeKindImplementedByCSINodeAgent)
+	default:
+		return true
+	}
+}
+
 func terminalNodeKindSet(policy api.ExpansionPolicy) map[model.NodeKind]struct{} {
 	if policy.ExpandTerminalNodes || len(policy.TerminalNodeKinds) == 0 {
 		return nil
@@ -226,11 +266,11 @@ func terminalNodeKindSet(policy api.ExpansionPolicy) map[model.NodeKind]struct{}
 	return out
 }
 
-func isTerminalNode(node model.Node, rootID model.CanonicalID, rootKind model.NodeKind, terminalKinds map[model.NodeKind]struct{}, expandTerminalNodes bool) bool {
+func (s *Service) isTerminalNode(node model.Node, rootID model.CanonicalID, rootKind model.NodeKind, terminalKinds map[model.NodeKind]struct{}, expandTerminalNodes bool) bool {
 	if expandTerminalNodes {
 		return false
 	}
-	if isTerminalCSINode(node) {
+	if s.isTerminalCSINode(node) {
 		return true
 	}
 	if node.ID != rootID && rootKind == model.NodeKindPod && node.Kind == model.NodeKindPod {
@@ -243,10 +283,18 @@ func isTerminalNode(node model.Node, rootID model.CanonicalID, rootKind model.No
 	return ok
 }
 
-func isTerminalCSINode(node model.Node) bool {
-	if node.Kind != model.NodeKindPod || node.Namespace != "kube-system" {
+func (s *Service) isTerminalCSINode(node model.Node) bool {
+	if node.Kind != model.NodeKindPod || s.kernel == nil {
 		return false
 	}
-	name := node.Name
-	return strings.HasPrefix(name, "open-local-agent-") || strings.HasPrefix(name, "open-local-controller-") || strings.HasPrefix(name, "open-local-scheduler-extender-")
+	for _, edge := range s.kernel.Neighbors(node.ID) {
+		switch edge.Kind {
+		case model.EdgeKindImplementedByCSIController,
+			model.EdgeKindImplementedByCSINodeAgent,
+			model.EdgeKindManagedByCSIController,
+			model.EdgeKindServedByCSINodeAgent:
+			return true
+		}
+	}
+	return false
 }

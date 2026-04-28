@@ -34,20 +34,76 @@ func (r *Registry) Correlator(driver string) (CSICorrelator, bool) {
 	return correlator, ok
 }
 
-type OpenLocalCorrelator struct{}
-
 type CSIComponentRule struct {
-	Driver                string
-	ControllerPodPrefixes []string
-	NodeAgentPodPrefixes  []string
+	Driver                string   `json:"driver" yaml:"driver"`
+	ComponentNamespace    string   `json:"namespace" yaml:"namespace"`
+	ControllerPodPrefixes []string `json:"controllerPodPrefixes" yaml:"controllerPodPrefixes"`
+	NodeAgentPodPrefixes  []string `json:"nodeAgentPodPrefixes" yaml:"nodeAgentPodPrefixes"`
 }
 
-func DefaultCSIComponentRules() []CSIComponentRule {
-	return []CSIComponentRule{{
-		Driver:                "local.csi.aliyun.com",
-		ControllerPodPrefixes: []string{"open-local-controller-", "open-local-scheduler-extender-"},
-		NodeAgentPodPrefixes:  []string{"open-local-agent-"},
-	}}
+func EffectiveCSIComponentRules(configured []CSIComponentRule) []CSIComponentRule {
+	if len(configured) == 0 {
+		return nil
+	}
+	out := make([]CSIComponentRule, 0, len(configured))
+	for _, rule := range configured {
+		out = append(out, rule)
+	}
+	return out
+}
+
+func ParseCSIComponentRules(raw string) ([]CSIComponentRule, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]CSIComponentRule, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		rule := CSIComponentRule{}
+		for _, field := range strings.Split(part, ";") {
+			key, value, ok := strings.Cut(field, "=")
+			if !ok {
+				return nil, fmt.Errorf("csi component rule %q field %q must be key=value", part, field)
+			}
+			key = strings.TrimSpace(key)
+			value = strings.TrimSpace(value)
+			switch key {
+			case "driver":
+				rule.Driver = value
+			case "namespace":
+				rule.ComponentNamespace = value
+			case "controller":
+				rule.ControllerPodPrefixes = splitRuleList(value)
+			case "agent", "nodeAgent":
+				rule.NodeAgentPodPrefixes = splitRuleList(value)
+			default:
+				return nil, fmt.Errorf("csi component rule %q has unknown field %q", part, key)
+			}
+		}
+		if rule.Driver == "" {
+			return nil, fmt.Errorf("csi component rule %q must set driver", part)
+		}
+		if len(rule.ControllerPodPrefixes) == 0 && len(rule.NodeAgentPodPrefixes) == 0 {
+			return nil, fmt.Errorf("csi component rule %q must set controller or agent", part)
+		}
+		out = append(out, rule)
+	}
+	return out, nil
+}
+
+func NewCSIComponentRegistry(rules []CSIComponentRule) *Registry {
+	correlators := make([]CSICorrelator, 0, len(rules))
+	for _, rule := range rules {
+		if rule.Driver == "" {
+			continue
+		}
+		correlators = append(correlators, componentRuleCorrelator{rule: rule})
+	}
+	return NewRegistry(correlators...)
 }
 
 func IsCSIProvisioner(provisioner string, observedCSIDriver bool, rules []CSIComponentRule) bool {
@@ -72,7 +128,7 @@ func InferCSIComponentEdges(driver model.Node, infraPods []model.Node, rules []C
 	foundController := false
 	foundAgent := false
 	for _, infraPod := range infraPods {
-		if infraPod.Kind != model.NodeKindPod || infraPod.Namespace != "kube-system" {
+		if infraPod.Kind != model.NodeKindPod || !rule.matchesComponentNamespace(infraPod.Namespace) {
 			continue
 		}
 		if hasAnyPrefix(infraPod.Name, rule.ControllerPodPrefixes) {
@@ -94,6 +150,51 @@ func InferCSIComponentEdges(driver model.Node, infraPods []model.Node, rules []C
 	return result
 }
 
+type componentRuleCorrelator struct {
+	rule CSIComponentRule
+}
+
+func (c componentRuleCorrelator) Driver() string {
+	return c.rule.Driver
+}
+
+func (c componentRuleCorrelator) Correlate(pv model.Node, affinityNodeName string, infraPods []model.Node) CorrelationResult {
+	result := CorrelationResult{Edges: make([]model.Edge, 0), Evidence: make([]string, 0)}
+	foundAgent := false
+	foundController := false
+	for _, infraPod := range infraPods {
+		if infraPod.Kind != model.NodeKindPod || !c.rule.matchesComponentNamespace(infraPod.Namespace) {
+			continue
+		}
+		name := infraPod.Name
+		if hasAnyPrefix(name, c.rule.ControllerPodPrefixes) {
+			result.Edges = append(result.Edges, pvManagedByCSIController(pv.ID, infraPod.ID, "csi-component-rule/"+c.rule.Driver+"/pv-controller/v1"))
+			foundController = true
+			continue
+		}
+		if hasAnyPrefix(name, c.rule.NodeAgentPodPrefixes) {
+			if affinityNodeName == "" {
+				continue
+			}
+			if podNode, _ := infraPod.Attributes["nodeName"].(string); podNode == affinityNodeName {
+				result.Edges = append(result.Edges, pvServedByCSINodeAgent(pv.ID, infraPod.ID, "csi-component-rule/"+c.rule.Driver+"/pv-agent/v1"))
+				foundAgent = true
+			}
+		}
+	}
+	if len(c.rule.ControllerPodPrefixes) > 0 && !foundController {
+		result.Evidence = append(result.Evidence, fmt.Sprintf("csi: no controller component found for PV driver %s", c.rule.Driver))
+	}
+	if len(c.rule.NodeAgentPodPrefixes) > 0 {
+		if affinityNodeName == "" {
+			result.Evidence = append(result.Evidence, fmt.Sprintf("csi: PV affinity node missing for driver %s", c.rule.Driver))
+		} else if !foundAgent {
+			result.Evidence = append(result.Evidence, fmt.Sprintf("csi: no node agent found for driver %s on PV affinity node %s", c.rule.Driver, affinityNodeName))
+		}
+	}
+	return result
+}
+
 func componentRuleForDriver(driver string, rules []CSIComponentRule) (CSIComponentRule, bool) {
 	for _, rule := range rules {
 		if rule.Driver == driver {
@@ -101,6 +202,10 @@ func componentRuleForDriver(driver string, rules []CSIComponentRule) (CSICompone
 		}
 	}
 	return CSIComponentRule{}, false
+}
+
+func (r CSIComponentRule) matchesComponentNamespace(namespace string) bool {
+	return r.ComponentNamespace == "" || r.ComponentNamespace == "*" || r.ComponentNamespace == namespace
 }
 
 func hasAnyPrefix(value string, prefixes []string) bool {
@@ -121,39 +226,6 @@ func looksLikeCSIProvisioner(provisioner string) bool {
 		strings.Contains(provisioner, "-csi.") ||
 		strings.Contains(provisioner, ".csi-") ||
 		strings.HasSuffix(provisioner, ".csi")
-}
-
-func (OpenLocalCorrelator) Driver() string {
-	return "local.csi.aliyun.com"
-}
-
-func (OpenLocalCorrelator) Correlate(pv model.Node, affinityNodeName string, infraPods []model.Node) CorrelationResult {
-	result := CorrelationResult{Edges: make([]model.Edge, 0), Evidence: make([]string, 0)}
-	foundAgent := false
-	for _, infraPod := range infraPods {
-		if infraPod.Kind != model.NodeKindPod || infraPod.Namespace != "kube-system" {
-			continue
-		}
-		name := infraPod.Name
-		if strings.HasPrefix(name, "open-local-agent-") {
-			if affinityNodeName != "" {
-				if podNode, _ := infraPod.Attributes["nodeName"].(string); podNode == affinityNodeName {
-					result.Edges = append(result.Edges, pvServedByCSINodeAgent(pv.ID, infraPod.ID, "csi-open-local-agent/v1"))
-					foundAgent = true
-				}
-			}
-			continue
-		}
-		if strings.HasPrefix(name, "open-local-controller-") || strings.HasPrefix(name, "open-local-scheduler-extender-") {
-			result.Edges = append(result.Edges, pvManagedByCSIController(pv.ID, infraPod.ID, "csi-open-local-controller/v1"))
-		}
-	}
-	if affinityNodeName == "" {
-		result.Evidence = append(result.Evidence, "csi: PV affinity node missing for driver local.csi.aliyun.com")
-	} else if !foundAgent {
-		result.Evidence = append(result.Evidence, fmt.Sprintf("csi: no open-local node agent found on PV affinity node %s", affinityNodeName))
-	}
-	return result
 }
 
 func pvServedByCSINodeAgent(pvID, targetID model.CanonicalID, resolver string) model.Edge {

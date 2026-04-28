@@ -19,6 +19,7 @@ import (
 
 type ManagerOptions struct {
 	WorkloadControllerRules []infer.WorkloadControllerRule
+	CSIComponentRules       []infer.CSIComponentRule
 }
 
 type Manager struct {
@@ -32,6 +33,7 @@ type Manager struct {
 	kernel                  *graph.Kernel
 	planner                 reconcile.Planner
 	workloadControllerRules []infer.WorkloadControllerRule
+	csiComponentRules       []infer.CSIComponentRule
 }
 
 func NewManager(cluster string, collector collectk8s.Collector) *Manager {
@@ -45,6 +47,7 @@ func NewManagerWithOptions(cluster string, collector collectk8s.Collector, optio
 		status:                  Status{Phase: PhaseStarting, Cluster: cluster},
 		planner:                 reconcile.NewNoopPlanner(),
 		workloadControllerRules: options.WorkloadControllerRules,
+		csiComponentRules:       infer.EffectiveCSIComponentRules(options.CSIComponentRules),
 	}
 }
 
@@ -52,7 +55,7 @@ func (m *Manager) Start(ctx context.Context) error {
 	m.mu.Lock()
 	m.status = Status{Phase: PhaseBootstrapping, Cluster: m.cluster}
 	m.mu.Unlock()
-	bootstrap, err := bootstrapRuntime(ctx, m.cluster, m.collector, m.workloadControllerRules)
+	bootstrap, err := bootstrapRuntime(ctx, m.cluster, m.collector, m.workloadControllerRules, m.csiComponentRules)
 	if err != nil {
 		m.mu.Lock()
 		m.markDegradedLocked(err)
@@ -98,7 +101,7 @@ func (m *Manager) Apply(ctx context.Context, event collectk8s.ChangeEvent) error
 		}
 	}
 
-	bootstrap, err := bootstrapRuntime(ctx, m.cluster, m.collector, m.workloadControllerRules)
+	bootstrap, err := bootstrapRuntime(ctx, m.cluster, m.collector, m.workloadControllerRules, m.csiComponentRules)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err != nil {
@@ -194,7 +197,7 @@ func (m *Manager) applyStorageChange(ctx context.Context, event collectk8s.Chang
 	if m.kernel == nil || m.facade == nil {
 		return fmt.Errorf("storage scoped apply requires initialized runtime")
 	}
-	if _, err := reconcile.NewStorageReconciler(m.cluster, m.kernel).Apply(snapshot); err != nil {
+	if _, err := reconcile.NewStorageReconcilerWithCSIComponentRules(m.cluster, m.kernel, m.csiComponentRules).Apply(snapshot); err != nil {
 		return err
 	}
 

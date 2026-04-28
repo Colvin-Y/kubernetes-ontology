@@ -32,6 +32,7 @@ func NewHandler(runtime Runtime) http.Handler {
 	mux.HandleFunc("GET /relations", s.relations)
 	mux.HandleFunc("GET /neighbors", s.neighbors)
 	mux.HandleFunc("GET /expand", s.expand)
+	mux.HandleFunc("GET /diagnostic", s.diagnosticGeneric)
 	mux.HandleFunc("GET /diagnostic/pod", s.diagnosticPod)
 	mux.HandleFunc("GET /diagnostic/workload", s.diagnosticWorkload)
 	return mux
@@ -193,10 +194,18 @@ func (h *handler) diagnosticWorkload(w http.ResponseWriter, r *http.Request) {
 	h.diagnostic(w, r, "Workload")
 }
 
+func (h *handler) diagnosticGeneric(w http.ResponseWriter, r *http.Request) {
+	h.diagnostic(w, r, r.URL.Query().Get("kind"))
+}
+
 func (h *handler) diagnostic(w http.ResponseWriter, r *http.Request, kind string) {
+	if kind == "" {
+		writeError(w, http.StatusBadRequest, errors.New("kind is required"))
+		return
+	}
 	namespace := r.URL.Query().Get("namespace")
 	name := r.URL.Query().Get("name")
-	if namespace == "" {
+	if namespace == "" && (kind == "Pod" || kind == "Workload") {
 		writeError(w, http.StatusBadRequest, errors.New("namespace is required"))
 		return
 	}

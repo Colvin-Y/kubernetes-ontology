@@ -32,7 +32,7 @@ func TestGetDiagnosticSubgraphRespectsMaxDepth(t *testing.T) {
 		}
 	}
 
-	result, err := service.GetDiagnosticSubgraph(api.EntryRef{Kind: api.EntryKindPod, CanonicalID: a.ID.String()}, api.ExpansionPolicy{MaxDepth: 1})
+	result, err := service.GetDiagnosticSubgraph(api.EntryRef{Kind: api.NodeKindPod, CanonicalID: a.ID.String()}, api.ExpansionPolicy{MaxDepth: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
