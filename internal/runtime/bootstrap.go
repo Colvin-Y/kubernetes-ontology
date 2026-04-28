@@ -19,13 +19,16 @@ type bootstrapResult struct {
 	EdgeCount int
 }
 
-func bootstrapRuntime(ctx context.Context, cluster string, collector collectk8s.Collector, controllerRules []infer.WorkloadControllerRule) (bootstrapResult, error) {
+func bootstrapRuntime(ctx context.Context, cluster string, collector collectk8s.Collector, controllerRules []infer.WorkloadControllerRule, csiComponentRules []infer.CSIComponentRule) (bootstrapResult, error) {
 	snapshot, err := collector.Collect(ctx)
 	if err != nil {
 		return bootstrapResult{}, err
 	}
 
-	reconciler := reconcile.NewFullReconcilerWithControllerRules(cluster, controllerRules)
+	reconciler := reconcile.NewFullReconcilerWithOptions(cluster, reconcile.FullReconcilerOptions{
+		WorkloadControllerRules: controllerRules,
+		CSIComponentRules:       csiComponentRules,
+	})
 	rebuild := reconciler.Rebuild(snapshot)
 	_, kernel, _ := newKernel()
 	for _, node := range rebuild.Nodes {

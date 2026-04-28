@@ -7,6 +7,7 @@ import (
 	"github.com/Colvin-Y/kubernetes-ontology/internal/collect/k8s/resources"
 	"github.com/Colvin-Y/kubernetes-ontology/internal/graph"
 	"github.com/Colvin-Y/kubernetes-ontology/internal/model"
+	"github.com/Colvin-Y/kubernetes-ontology/internal/resolve/infer"
 )
 
 func TestBuilderBuildPVCToPV(t *testing.T) {
@@ -31,6 +32,7 @@ func TestBuilderBuildPVCToPV(t *testing.T) {
 
 func TestBuilderBuildsPVCStorageTopology(t *testing.T) {
 	builder := graph.NewBuilder("cluster-a")
+	builder.SetCSIComponentRules(openLocalCSIComponentRules())
 	snapshot := storageTopologySnapshot()
 
 	nodes, edges := builder.Build(snapshot)
@@ -89,6 +91,61 @@ func TestBuilderDoesNotSynthesizeCSIDriverForNonCSIProvisioner(t *testing.T) {
 	}
 }
 
+func TestBuilderUsesConfiguredCSIComponentRule(t *testing.T) {
+	builder := graph.NewBuilder("cluster-a")
+	builder.SetCSIComponentRules([]infer.CSIComponentRule{{
+		Driver:                "diskplugin.csi.alibabacloud.com",
+		ComponentNamespace:    "storage-system",
+		ControllerPodPrefixes: []string{"disk-controller-"},
+		NodeAgentPodPrefixes:  []string{"disk-agent-"},
+	}})
+	snapshot := collectk8s.Snapshot{
+		Pods: []resources.Pod{
+			{
+				Metadata: resources.Metadata{UID: "controller-uid", Name: "disk-controller-0", Namespace: "storage-system"},
+			},
+			{
+				Metadata: resources.Metadata{UID: "agent-uid", Name: "disk-agent-node-a", Namespace: "storage-system"},
+				NodeName: "node-a",
+			},
+		},
+		PVCs: []resources.PVC{{
+			Metadata:         resources.Metadata{UID: "pvc-uid", Name: "data", Namespace: "default"},
+			VolumeName:       "pv-data",
+			StorageClassName: "cloud-disk",
+		}},
+		PVs: []resources.PV{{
+			Metadata:         resources.Metadata{UID: "pv-uid", Name: "pv-data"},
+			StorageClassName: "cloud-disk",
+			CSI:              map[string]string{"driver": "diskplugin.csi.alibabacloud.com", "nodeAffinity": "node-a"},
+		}},
+		StorageClasses: []resources.StorageClass{{
+			Metadata:    resources.Metadata{UID: "sc-uid", Name: "cloud-disk"},
+			Provisioner: "diskplugin.csi.alibabacloud.com",
+		}},
+	}
+
+	nodes, edges := builder.Build(snapshot)
+	if !containsNodeKind(nodes, model.NodeKindCSIDriver) {
+		t.Fatal("expected synthetic CSIDriver from configured provisioner")
+	}
+	edgeKinds := map[model.EdgeKind]bool{}
+	for _, edge := range edges {
+		edgeKinds[edge.Kind] = true
+	}
+	for _, kind := range []model.EdgeKind{
+		model.EdgeKindProvisionedByCSIDriver,
+		model.EdgeKindImplementedByCSIController,
+		model.EdgeKindImplementedByCSINodeAgent,
+		model.EdgeKindManagedByCSIController,
+		model.EdgeKindServedByCSINodeAgent,
+	} {
+		if !edgeKinds[kind] {
+			t.Fatalf("expected configured CSI edge kind %s", kind)
+		}
+	}
+}
+
 func storageTopologySnapshot() collectk8s.Snapshot {
 	return collectk8s.Snapshot{
 		Pods: []resources.Pod{
@@ -124,4 +181,22 @@ func storageTopologySnapshot() collectk8s.Snapshot {
 			Metadata: resources.Metadata{UID: "driver-uid", Name: "local.csi.aliyun.com"},
 		}},
 	}
+}
+
+func containsNodeKind(nodes []model.Node, kind model.NodeKind) bool {
+	for _, node := range nodes {
+		if node.Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
+func openLocalCSIComponentRules() []infer.CSIComponentRule {
+	return []infer.CSIComponentRule{{
+		Driver:                "local.csi.aliyun.com",
+		ComponentNamespace:    "kube-system",
+		ControllerPodPrefixes: []string{"open-local-controller-", "open-local-scheduler-extender-"},
+		NodeAgentPodPrefixes:  []string{"open-local-agent-"},
+	}}
 }

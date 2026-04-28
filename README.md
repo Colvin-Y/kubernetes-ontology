@@ -92,8 +92,9 @@ The graph can recover and correlate:
 
 ### CSI Correlation
 
-The current CSI resolver includes OpenLocal-style correlation for
-`local.csi.aliyun.com`, including controller and node-agent inference.
+CSI storage topology follows `PVC -> PV/StorageClass -> CSIDriver`. Component
+correlation is configured with `csiComponentRules`; driver-specific controller
+and node-agent inference is not enabled unless a matching rule is configured.
 
 Recovered evidence can include relations such as:
 
@@ -266,6 +267,14 @@ controllerRules:
       - kruise-controller-manager
     nodeDaemonPodPrefixes:
       - kruise-daemon
+
+csiComponentRules:
+  - driver: diskplugin.csi.alibabacloud.com
+    namespace: kube-system
+    controllerPodPrefixes:
+      - csi-provisioner-
+    nodeAgentPodPrefixes:
+      - csi-plugin-
 ```
 
 If a configured custom resource is not installed in the cluster, the daemon logs

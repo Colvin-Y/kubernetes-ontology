@@ -38,6 +38,7 @@ func main() {
 	var contextNamespaces string
 	var workloadResourcesRaw string
 	var controllerRulesRaw string
+	var csiComponentRulesRaw string
 	var terminalKindsRaw string
 	var maxDepth int
 	var storageMaxDepth int
@@ -70,13 +71,14 @@ func main() {
 	flag.StringVar(&configPath, "config", "", "Path to YAML config file")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to kubeconfig file")
 	flag.StringVar(&cluster, "cluster", "default-cluster", "Logical cluster name for canonical IDs")
-	flag.StringVar(&entryKind, "entry-kind", "", "Diagnostic entry kind: Pod or Workload")
+	flag.StringVar(&entryKind, "entry-kind", "", "Diagnostic entry kind: Pod, Workload, PVC, PV, StorageClass, CSIDriver, or another ontology node kind")
 	flag.StringVar(&namespace, "namespace", "", "Namespace of diagnostic entry")
 	flag.StringVar(&name, "name", "", "Name of diagnostic entry")
 	flag.StringVar(&contextNamespaces, "context-namespaces", "", "Comma-separated namespaces to collect as ontology context. Empty means all namespaces.")
 	flag.StringVar(&contextNamespaces, "namespaces", "", "Alias for --context-namespaces")
 	flag.StringVar(&workloadResourcesRaw, "workload-resources", "", "Comma-separated custom workload resources as group/version/resource/kind[/scope], e.g. apps.kruise.io/v1alpha1/advancedstatefulsets/AdvancedStatefulSet")
 	flag.StringVar(&controllerRulesRaw, "controller-rules", "", "Comma-separated workload controller display rules as apiVersion=...;kind=...;namespace=...;controller=prefix;daemon=prefix")
+	flag.StringVar(&csiComponentRulesRaw, "csi-component-rules", "", "Comma-separated CSI component rules as driver=...;namespace=...;controller=prefix;agent=prefix")
 	flag.StringVar(&terminalKindsRaw, "terminal-kinds", "", "Comma-separated diagnostic terminal node kinds. Empty uses defaults; 'none' disables terminal boundaries.")
 	flag.IntVar(&maxDepth, "max-depth", 2, "Maximum general BFS depth for diagnostic subgraph traversal")
 	flag.IntVar(&storageMaxDepth, "storage-max-depth", 5, "Maximum BFS depth for storage and CSI related traversal")
@@ -193,7 +195,7 @@ func main() {
 	}
 
 	if kubeconfig == "" || (!statusOnly && !expandNode && (entryKind == "" || name == "")) {
-		fmt.Fprintln(os.Stderr, "usage: kubernetes-ontology [--config <path>] [--server <url> | --kubeconfig <path>] [--status-only] --entry-kind <Pod|Workload> --namespace <ns> --name <name>")
+		fmt.Fprintln(os.Stderr, "usage: kubernetes-ontology [--config <path>] [--server <url> | --kubeconfig <path>] [--status-only] --entry-kind <Pod|Workload|PVC|PV|StorageClass|CSIDriver|...> [--namespace <ns>] --name <name>")
 		os.Exit(2)
 	}
 
@@ -217,6 +219,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "parse controller rules: %v\n", err)
 		os.Exit(2)
 	}
+	csiComponentRules, err := csiComponentRulesFromConfig(cfg, setFlags, csiComponentRulesRaw)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "parse csi component rules: %v\n", err)
+		os.Exit(2)
+	}
 	var dynamicClient dynamic.Interface
 	if len(workloadResources) > 0 {
 		dynamicClient, err = dynamic.NewForConfig(config)
@@ -235,7 +242,7 @@ func main() {
 		DynamicClient:     dynamicClient,
 		WorkloadResources: workloadResources,
 	})
-	manager := runtime.NewManagerWithOptions(cluster, collector, runtime.ManagerOptions{WorkloadControllerRules: controllerRules})
+	manager := runtime.NewManagerWithOptions(cluster, collector, runtime.ManagerOptions{WorkloadControllerRules: controllerRules, CSIComponentRules: csiComponentRules})
 	if err := manager.Start(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "bootstrap runtime: %v\n", err)
 		os.Exit(1)
@@ -380,6 +387,17 @@ func controllerRulesFromConfig(cfg appconfig.Config, setFlags map[string]bool, r
 	return infer.ParseWorkloadControllerRules(raw)
 }
 
+func csiComponentRulesFromConfig(cfg appconfig.Config, setFlags map[string]bool, raw string) ([]infer.CSIComponentRule, error) {
+	if len(cfg.CSIComponentRules) > 0 && !setFlags["csi-component-rules"] {
+		return infer.EffectiveCSIComponentRules(cfg.CSIComponentRules), nil
+	}
+	rules, err := infer.ParseCSIComponentRules(raw)
+	if err != nil {
+		return nil, err
+	}
+	return infer.EffectiveCSIComponentRules(rules), nil
+}
+
 func collectionNamespaces(contextNamespaces, entryNamespace string) []string {
 	namespaces := splitCSV(contextNamespaces)
 	if entryNamespace != "" {
@@ -508,17 +526,12 @@ func queryServer(server string, options serverQueryOptions) error {
 	if options.entryKind == "" || options.name == "" {
 		return fmt.Errorf("entry-kind and name are required unless --status-only is set")
 	}
-	var endpoint string
-	switch strings.ToLower(options.entryKind) {
-	case "pod":
-		endpoint = "/diagnostic/pod"
-	case "workload":
-		endpoint = "/diagnostic/workload"
-	default:
-		return fmt.Errorf("unsupported entry kind %q", options.entryKind)
-	}
+	endpoint := "/diagnostic"
 	values := url.Values{}
-	values.Set("namespace", options.namespace)
+	values.Set("kind", options.entryKind)
+	if options.namespace != "" {
+		values.Set("namespace", options.namespace)
+	}
 	values.Set("name", options.name)
 	if options.maxDepth > 0 {
 		values.Set("maxDepth", strconv.Itoa(options.maxDepth))

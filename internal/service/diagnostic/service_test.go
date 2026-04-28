@@ -98,11 +98,14 @@ func TestGetDiagnosticSubgraphTraversesStorageClassAndCSIDriver(t *testing.T) {
 
 	pod := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "Pod", Namespace: "default", Name: "app-0", UID: "p1"}), Kind: model.NodeKindPod, Name: "app-0", Namespace: "default"}
 	pvc := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "PVC", Namespace: "default", Name: "data", UID: "pvc1"}), Kind: model.NodeKindPVC, Name: "data", Namespace: "default"}
+	otherPVC := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "PVC", Namespace: "default", Name: "other-data", UID: "pvc2"}), Kind: model.NodeKindPVC, Name: "other-data", Namespace: "default"}
+	otherPV := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "PV", Name: "other-pv", UID: "pv2"}), Kind: model.NodeKindPV, Name: "other-pv"}
 	storageClass := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "storage.k8s.io", Kind: "StorageClass", Name: "open-local", UID: "sc1"}), Kind: model.NodeKindStorageClass, Name: "open-local"}
+	otherStorageClass := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "storage.k8s.io", Kind: "StorageClass", Name: "other-open-local", UID: "sc2"}), Kind: model.NodeKindStorageClass, Name: "other-open-local"}
 	driver := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "storage.k8s.io", Kind: "CSIDriver", Name: "local.csi.aliyun.com", UID: "driver1"}), Kind: model.NodeKindCSIDriver, Name: "local.csi.aliyun.com"}
 	controller := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "Pod", Namespace: "kube-system", Name: "open-local-controller-0", UID: "c1"}), Kind: model.NodeKindPod, Name: "open-local-controller-0", Namespace: "kube-system"}
 
-	for _, node := range []model.Node{pod, pvc, storageClass, driver, controller} {
+	for _, node := range []model.Node{pod, pvc, otherPVC, otherPV, storageClass, otherStorageClass, driver, controller} {
 		if err := kernel.UpsertNode(node); err != nil {
 			t.Fatal(err)
 		}
@@ -110,7 +113,11 @@ func TestGetDiagnosticSubgraphTraversesStorageClassAndCSIDriver(t *testing.T) {
 	for _, edge := range []model.Edge{
 		{From: pod.ID, To: pvc.ID, Kind: model.EdgeKindMountsPVC},
 		{From: pvc.ID, To: storageClass.ID, Kind: model.EdgeKindUsesStorageClass},
+		{From: otherPVC.ID, To: otherPV.ID, Kind: model.EdgeKindBoundToPV},
+		{From: otherPVC.ID, To: storageClass.ID, Kind: model.EdgeKindUsesStorageClass},
+		{From: otherPV.ID, To: storageClass.ID, Kind: model.EdgeKindUsesStorageClass},
 		{From: storageClass.ID, To: driver.ID, Kind: model.EdgeKindProvisionedByCSIDriver},
+		{From: otherStorageClass.ID, To: driver.ID, Kind: model.EdgeKindProvisionedByCSIDriver},
 		{From: driver.ID, To: controller.ID, Kind: model.EdgeKindImplementedByCSIController},
 	} {
 		if err := kernel.UpsertEdge(edge); err != nil {
@@ -131,6 +138,9 @@ func TestGetDiagnosticSubgraphTraversesStorageClassAndCSIDriver(t *testing.T) {
 	}
 	if !diagnosticContainsNode(result.Nodes, "open-local-controller-0") {
 		t.Fatalf("expected storage traversal to include csi controller, got %#v", result.Nodes)
+	}
+	if diagnosticContainsNode(result.Nodes, "other-data") || diagnosticContainsNode(result.Nodes, "other-pv") || diagnosticContainsNode(result.Nodes, "other-open-local") {
+		t.Fatalf("expected storage traversal to avoid sibling storage fan-out, got %#v", result.Nodes)
 	}
 
 	withoutStorage, err := service.GetDiagnosticSubgraph(api.EntryRef{Kind: api.EntryKindPod, CanonicalID: pod.ID.String()}, api.ExpansionPolicy{

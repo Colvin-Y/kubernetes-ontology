@@ -249,9 +249,9 @@ It should not be used as the only signal for graph facts already present in node
 
 ### Safe conclusions
 - this pod mounts PVC X, which is bound to PV Y
-- this PV uses CSI driver `local.csi.aliyun.com`
-- this PV is managed by open-local controller components
-- no open-local node agent was found for the PV affinity node in the current observed graph slice
+- this PV uses CSI driver X
+- this PV is managed by configured CSI controller components
+- no configured CSI node agent was found for the PV affinity node in the current observed graph slice
 - this workload owns the pod through the owner chain
 
 ### Unsafe conclusions
@@ -265,7 +265,9 @@ It should not be used as the only signal for graph facts already present in node
 - `explanation` content is best-effort and not yet ranked
 - event summarization is still shallow
 - traversal policy can hide otherwise valid graph facts if policy is too narrow
-- CSI correlation currently includes only the built-in open-local resolver
+- CSI component correlation is rule-based and only applies when matching
+  `csiComponentRules` are configured; configured CSI rules should still be
+  treated as inferred evidence, not ground truth
 - output may include multiple controller components for the same CSI system
 
 ## Recommendation for downstream agent implementation

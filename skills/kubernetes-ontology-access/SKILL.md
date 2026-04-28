@@ -225,7 +225,8 @@ Current limits to keep visible in agent reasoning:
 
 - `explanation` content is useful but best-effort and not fully ranked.
 - Traversal policy can hide valid facts outside the selected graph slice.
-- CSI correlation currently focuses on the built-in OpenLocal resolver.
+- CSI component correlation is configurable with `csiComponentRules`; no
+  driver-specific component inference runs unless a matching rule is configured.
 - A missing edge in one diagnostic response should be treated as missing
   evidence in that slice, not global absence.
 

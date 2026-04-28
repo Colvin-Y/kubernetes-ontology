@@ -194,6 +194,14 @@ controllerRules:
     nodeDaemonPodPrefixes:
       - kruise-daemon
 
+csiComponentRules:
+  - driver: diskplugin.csi.alibabacloud.com
+    namespace: kube-system
+    controllerPodPrefixes:
+      - csi-provisioner-
+    nodeAgentPodPrefixes:
+      - csi-plugin-
+
 server:
   addr: 127.0.0.1:18080
   url: http://127.0.0.1:18080
@@ -223,6 +231,9 @@ infrastructure, business, system, or any other ontology role.
 be collected so ownerReference chains can resolve through them. `controllerRules`
 adds display-only controller ownership, such as Kruise workloads being served by
 `kruise-controller-manager` and node-local `kruise-daemon` pods.
+`csiComponentRules` links a StorageClass provisioner / CSI driver name to the
+real CSI controller and node-agent Pods by namespace and name prefix. No
+driver-specific component inference runs unless a matching rule is configured.
 For `workloadResources.kind`, use the actual Kubernetes ownerReference `kind`
 such as `StatefulSet` for Kruise ASTS, not a local nickname.
 The example OpenKruise and Redis resources are optional. On a clean kind
@@ -236,6 +247,7 @@ The equivalent CLI flags still exist for one-off overrides:
 --context-namespaces "default,kube-system"
 --workload-resources "apps.kruise.io/v1beta1/statefulsets/StatefulSet,redis.io/v1beta1/clusters/Cluster"
 --controller-rules "apiVersion=apps.kruise.io/*;kind=*;namespace=kruise-system;controller=kruise-controller-manager;daemon=kruise-daemon"
+--csi-component-rules "driver=diskplugin.csi.alibabacloud.com;namespace=kube-system;controller=csi-provisioner-;agent=csi-plugin-"
 ```
 
 The Makefile still accepts `KUBECONFIG=...`, `CLUSTER=...`, and

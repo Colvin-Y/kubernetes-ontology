@@ -44,6 +44,7 @@ pollInterval: 10s
 
 workloadResources: []
 controllerRules: []
+csiComponentRules: []
 
 server:
   # Empty host lets Go bind the wildcard listener for the available address

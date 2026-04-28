@@ -82,6 +82,21 @@ controllerRules:
       - kruise-daemon
 ```
 
+`csiComponentRules` configures CSI driver implementation relationships when
+the StorageClass provisioner name is known but the controller and node-agent Pod
+names are cluster-specific. No driver-specific component inference runs unless
+a matching rule is configured:
+
+```yaml
+csiComponentRules:
+  - driver: diskplugin.csi.alibabacloud.com
+    namespace: kube-system
+    controllerPodPrefixes:
+      - csi-provisioner-
+    nodeAgentPodPrefixes:
+      - csi-plugin-
+```
+
 If you do not use a YAML config, `CONTEXT_NAMESPACES` is the make-variable
 collection scope. It is a comma-separated string:
 

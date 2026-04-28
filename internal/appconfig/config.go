@@ -18,6 +18,7 @@ type Config struct {
 	ContextNamespaces []string                       `yaml:"contextNamespaces"`
 	WorkloadResources []collectk8s.WorkloadResource  `yaml:"workloadResources"`
 	ControllerRules   []infer.WorkloadControllerRule `yaml:"controllerRules"`
+	CSIComponentRules []infer.CSIComponentRule       `yaml:"csiComponentRules"`
 	Server            ServerConfig                   `yaml:"server"`
 	BootstrapTimeout  string                         `yaml:"bootstrapTimeout"`
 	PollInterval      string                         `yaml:"pollInterval"`

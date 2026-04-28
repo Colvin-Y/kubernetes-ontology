@@ -676,6 +676,10 @@
           <select id="diagnosticKind">
             <option>Pod</option>
             <option>Workload</option>
+            <option>PVC</option>
+            <option>PV</option>
+            <option>StorageClass</option>
+            <option>CSIDriver</option>
           </select>
         </div>
         <div class="field">
@@ -685,7 +689,7 @@
       </div>
       <div class="field">
         <label for="diagnosticName">Name</label>
-        <input id="diagnosticName" type="text" placeholder="pod or workload name" />
+        <input id="diagnosticName" type="text" placeholder="resource name" />
       </div>
       <div class="field">
         <label for="diagnosticTerminalKinds">Stop expanding at</label>
@@ -1081,24 +1085,25 @@
     async function loadDiagnosticFromServer() {
       const server = el.serverUrl.value.trim();
       if (!server) throw new Error('Ontology server URL is required.');
+      const kind = el.diagnosticKind.value;
       const namespace = el.diagnosticNamespace.value.trim();
       const name = el.diagnosticName.value.trim();
-      if (!namespace) throw new Error('Namespace is required to load a diagnostic graph.');
+      if (!namespace && ['Pod', 'Workload', 'PVC'].includes(kind)) throw new Error('Namespace is required to load this diagnostic graph.');
       if (!name) throw new Error('Name is required to load a diagnostic graph.');
       const params = new URLSearchParams({
         server,
-        kind: el.diagnosticKind.value,
-        namespace,
+        kind,
         name,
         maxDepth: state.diagnosticMaxDepth,
         storageMaxDepth: state.diagnosticStorageMaxDepth
       });
+      if (namespace) params.set('namespace', namespace);
       const terminalKinds = el.diagnosticTerminalKinds.value.trim();
       if (terminalKinds) params.set('terminalKinds', terminalKinds);
       if (el.expandTerminalNodes.checked) params.set('expandTerminalNodes', 'true');
       state.lastLoader = loadDiagnosticFromServer;
       setBusy(true);
-      setCanvasState('loading', 'Loading diagnostic graph', `${el.diagnosticKind.value} ${namespace}/${name}`);
+      setCanvasState('loading', 'Loading diagnostic graph', namespace ? `${kind} ${namespace}/${name}` : `${kind} ${name}`);
       setLiveStatus('Loading diagnostic graph...', 'warn');
       try {
         const data = await fetchJSON('/diagnostic?' + params.toString(), { timeoutMs: DIAGNOSTIC_FETCH_TIMEOUT_MS });
@@ -1212,8 +1217,8 @@
 
     function setDiagnosticKind(value) {
       const normalized = String(value || '').toLowerCase();
-      if (normalized === 'pod') el.diagnosticKind.value = 'Pod';
-      if (normalized === 'workload') el.diagnosticKind.value = 'Workload';
+      const option = Array.from(el.diagnosticKind.options).find((item) => item.value.toLowerCase() === normalized);
+      if (option) el.diagnosticKind.value = option.value;
     }
 
     function scheduleRefresh() {

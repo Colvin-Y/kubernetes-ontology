@@ -16,8 +16,23 @@ func TestFacadeFindEntryID(t *testing.T) {
 	snapshot := collectk8s.Snapshot{
 		Workloads: []resources.Workload{{Metadata: resources.Metadata{UID: "w1", Name: "frontend", Namespace: "default"}, ControllerKind: "Deployment"}},
 		Pods:      []resources.Pod{{Metadata: resources.Metadata{UID: "p1", Name: "frontend-abc123", Namespace: "default"}}},
+		PVCs:      []resources.PVC{{Metadata: resources.Metadata{UID: "pvc1", Name: "data", Namespace: "default"}}},
 	}
-	facade := NewFacade("cluster-a", snapshot, graph.NewBuilder("cluster-a"), diagnostic.NewService(graph.NewKernel(memorystore.NewStore(), memorystore.NewStore())))
+	builder := graph.NewBuilder("cluster-a")
+	nodes, edges := builder.Build(snapshot)
+	store := memorystore.NewStore()
+	kernel := graph.NewKernel(store, store)
+	for _, node := range nodes {
+		if err := kernel.UpsertNode(node); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, edge := range edges {
+		if err := kernel.UpsertEdge(edge); err != nil {
+			t.Fatal(err)
+		}
+	}
+	facade := NewFacade("cluster-a", snapshot, builder, diagnostic.NewService(kernel))
 
 	podID, err := facade.FindEntryID("Pod", "default", "frontend-abc123")
 	if err != nil {
@@ -33,6 +48,14 @@ func TestFacadeFindEntryID(t *testing.T) {
 	}
 	if workloadID == "" {
 		t.Fatal("expected workload canonical id")
+	}
+
+	pvcID, err := facade.FindEntryID("PersistentVolumeClaim", "default", "data")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pvcID == "" {
+		t.Fatal("expected pvc canonical id")
 	}
 }
 
@@ -171,4 +194,117 @@ func TestFacadeQueryDiagnosticSubgraph(t *testing.T) {
 	if len(result.Nodes) == 0 {
 		t.Fatal("expected diagnostic nodes")
 	}
+}
+
+func TestFacadeQueryDiagnosticSubgraphFromWorkloadIncludesStorage(t *testing.T) {
+	store := memorystore.NewStore()
+	kernel := graph.NewKernel(store, store)
+	service := diagnostic.NewService(kernel)
+	builder := graph.NewBuilder("cluster-a")
+	snapshot := collectk8s.Snapshot{
+		Workloads: []resources.Workload{{
+			Metadata:       resources.Metadata{UID: "w1", Name: "frontend", Namespace: "default"},
+			APIVersion:     "apps/v1",
+			ControllerKind: "Deployment",
+		}},
+		Pods: []resources.Pod{{
+			Metadata: resources.Metadata{UID: "p1", Name: "frontend-abc123", Namespace: "default"},
+			OwnerReferences: []resources.OwnerReference{{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "frontend",
+				UID:        "w1",
+				Controller: true,
+			}},
+			PVCRefs: []string{"data"},
+		}},
+		PVCs: []resources.PVC{{
+			Metadata:         resources.Metadata{UID: "pvc1", Name: "data", Namespace: "default"},
+			VolumeName:       "pv-data",
+			StorageClassName: "standard",
+		}},
+		PVs: []resources.PV{{
+			Metadata:         resources.Metadata{UID: "pv1", Name: "pv-data"},
+			StorageClassName: "standard",
+		}},
+		StorageClasses: []resources.StorageClass{{
+			Metadata:    resources.Metadata{UID: "sc1", Name: "standard"},
+			Provisioner: "kubernetes.io/no-provisioner",
+		}},
+	}
+
+	nodes, edges := builder.Build(snapshot)
+	for _, node := range nodes {
+		if err := kernel.UpsertNode(node); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, edge := range edges {
+		if err := kernel.UpsertEdge(edge); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	facade := NewFacade("cluster-a", snapshot, builder, service)
+	result, err := facade.QueryDiagnosticSubgraph("Workload", "default", "frontend", DiagnosticOptions{MaxDepth: 2, StorageMaxDepth: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, kind := range []api.NodeKind{api.NodeKindPod, api.NodeKindPVC, api.NodeKindPV, api.NodeKindStorageClass} {
+		if !diagnosticResultContainsKind(result.Nodes, kind) {
+			t.Fatalf("expected workload diagnostic to include %s, got %#v", kind, result.Nodes)
+		}
+	}
+}
+
+func TestFacadeQueryDiagnosticSubgraphFromPVC(t *testing.T) {
+	store := memorystore.NewStore()
+	kernel := graph.NewKernel(store, store)
+	service := diagnostic.NewService(kernel)
+	builder := graph.NewBuilder("cluster-a")
+	snapshot := collectk8s.Snapshot{
+		PVCs: []resources.PVC{{
+			Metadata:         resources.Metadata{UID: "pvc1", Name: "data", Namespace: "default"},
+			VolumeName:       "pv-data",
+			StorageClassName: "standard",
+		}},
+		PVs: []resources.PV{{
+			Metadata:         resources.Metadata{UID: "pv1", Name: "pv-data"},
+			StorageClassName: "standard",
+		}},
+		StorageClasses: []resources.StorageClass{{
+			Metadata:    resources.Metadata{UID: "sc1", Name: "standard"},
+			Provisioner: "kubernetes.io/no-provisioner",
+		}},
+	}
+
+	nodes, edges := builder.Build(snapshot)
+	for _, node := range nodes {
+		if err := kernel.UpsertNode(node); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, edge := range edges {
+		if err := kernel.UpsertEdge(edge); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	facade := NewFacade("cluster-a", snapshot, builder, service)
+	result, err := facade.QueryDiagnosticSubgraph("PVC", "default", "data", DiagnosticOptions{MaxDepth: 1, StorageMaxDepth: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !diagnosticResultContainsKind(result.Nodes, api.NodeKindPV) || !diagnosticResultContainsKind(result.Nodes, api.NodeKindStorageClass) {
+		t.Fatalf("expected pvc diagnostic to include storage chain, got %#v", result.Nodes)
+	}
+}
+
+func diagnosticResultContainsKind(nodes []api.DiagnosticNode, kind api.NodeKind) bool {
+	for _, node := range nodes {
+		if node.Kind == kind {
+			return true
+		}
+	}
+	return false
 }

@@ -32,6 +32,7 @@ func main() {
 	var contextNamespaces string
 	var workloadResourcesRaw string
 	var controllerRulesRaw string
+	var csiComponentRulesRaw string
 	var addr string
 	var bootstrapTimeout time.Duration
 	var pollInterval time.Duration
@@ -45,6 +46,7 @@ func main() {
 	flag.StringVar(&contextNamespaces, "namespaces", "", "Alias for --context-namespaces")
 	flag.StringVar(&workloadResourcesRaw, "workload-resources", "", "Comma-separated custom workload resources as group/version/resource/kind[/scope], e.g. apps.kruise.io/v1alpha1/advancedstatefulsets/AdvancedStatefulSet")
 	flag.StringVar(&controllerRulesRaw, "controller-rules", "", "Comma-separated workload controller display rules as apiVersion=...;kind=...;namespace=...;controller=prefix;daemon=prefix")
+	flag.StringVar(&csiComponentRulesRaw, "csi-component-rules", "", "Comma-separated CSI component rules as driver=...;namespace=...;controller=prefix;agent=prefix")
 	flag.StringVar(&addr, "addr", "127.0.0.1:18080", "HTTP listen address")
 	flag.DurationVar(&bootstrapTimeout, "bootstrap-timeout", 2*time.Minute, "Timeout for initial full snapshot bootstrap")
 	flag.DurationVar(&pollInterval, "poll-interval", 10*time.Second, "Polling interval for continuous graph refresh")
@@ -88,6 +90,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "parse controller rules: %v\n", err)
 		os.Exit(2)
 	}
+	csiComponentRules, err := csiComponentRulesFromConfig(cfg, setFlags, csiComponentRulesRaw)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "parse csi component rules: %v\n", err)
+		os.Exit(2)
+	}
 	var dynamicClient dynamic.Interface
 	if len(workloadResources) > 0 {
 		dynamicClient, err = dynamic.NewForConfig(config)
@@ -106,7 +113,7 @@ func main() {
 		DynamicClient:     dynamicClient,
 		WorkloadResources: workloadResources,
 	})
-	manager := runtime.NewManagerWithOptions(cluster, collector, runtime.ManagerOptions{WorkloadControllerRules: controllerRules})
+	manager := runtime.NewManagerWithOptions(cluster, collector, runtime.ManagerOptions{WorkloadControllerRules: controllerRules, CSIComponentRules: csiComponentRules})
 	bootstrapCtx, bootstrapCancel := context.WithTimeout(ctx, bootstrapTimeout)
 	if err := manager.Start(bootstrapCtx); err != nil {
 		bootstrapCancel()
@@ -210,6 +217,17 @@ func controllerRulesFromConfig(cfg appconfig.Config, setFlags map[string]bool, r
 		return cfg.ControllerRules, nil
 	}
 	return infer.ParseWorkloadControllerRules(raw)
+}
+
+func csiComponentRulesFromConfig(cfg appconfig.Config, setFlags map[string]bool, raw string) ([]infer.CSIComponentRule, error) {
+	if len(cfg.CSIComponentRules) > 0 && !setFlags["csi-component-rules"] {
+		return infer.EffectiveCSIComponentRules(cfg.CSIComponentRules), nil
+	}
+	rules, err := infer.ParseCSIComponentRules(raw)
+	if err != nil {
+		return nil, err
+	}
+	return infer.EffectiveCSIComponentRules(rules), nil
 }
 
 type continuousStreamOptions struct {

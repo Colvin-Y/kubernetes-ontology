@@ -94,7 +94,7 @@ Key packages:
 - pod-to-PVC and PVC-to-PV edges
 - event report edges
 - admission webhook evidence edges
-- CSI evidence edges for OpenLocal-style PVs
+- CSI evidence edges from configured CSI component rules
 
 ### Recursive Owner Chain
 Owner resolution is now recursive and shared by:
