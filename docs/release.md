@@ -129,6 +129,58 @@ Query it with the release CLI:
 kubernetes-ontology --server http://127.0.0.1:18080 --status
 ```
 
+## Publish The Agent Skill
+
+The skill is distributed from the repository default branch, not from release
+archives. Keep marketplace pages pointed at the live repository path so users
+get the newest onboarding workflow:
+
+```text
+https://github.com/Colvin-Y/kubernetes-ontology/tree/main/skills/kubernetes-ontology-access
+```
+
+For each release:
+
+1. Keep `skills/kubernetes-ontology-access/SKILL.md` metadata aligned with the
+   release you are documenting.
+2. Push the skill and README changes to the default branch before refreshing
+   marketplace entries.
+3. Ensure GitHub repository topics include:
+
+   ```text
+   claude-skills
+   claude-code-skill
+   agent-skills
+   codex-skills
+   kubernetes
+   devops
+   troubleshooting
+   ```
+
+   With an authenticated GitHub CLI:
+
+   ```bash
+   gh repo edit Colvin-Y/kubernetes-ontology \
+     --add-topic claude-skills \
+     --add-topic claude-code-skill \
+     --add-topic agent-skills \
+     --add-topic codex-skills
+   ```
+
+4. Refresh the manually submitted registries:
+
+   - `https://skills.re/submit`: submit the repository URL and select
+     `skills/kubernetes-ontology-access`.
+   - `https://skillhub.pm/submit`: submit as a Skill in the DevOps &
+     Infrastructure category.
+
+5. SkillsMP has no manual submit flow yet. It indexes GitHub daily, so verify
+   after the next sync:
+
+   ```bash
+   curl -fsS 'https://skillsmp.com/api/v1/skills/search?q=kubernetes-ontology-access&limit=10'
+   ```
+
 ## Optional Docker Hub Mirror
 
 If you later want Docker Hub as an additional mirror:

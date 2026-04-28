@@ -24,5 +24,9 @@ Or install from the repository and select this skill:
 npx skills add Colvin-Y/kubernetes-ontology -s kubernetes-ontology-access -g --agent codex
 ```
 
+These install commands are meant to track the repository's default branch.
+Release tags are used for the daemon, CLI, viewer binaries, images, and Helm
+chart versions; the skill itself should expose the latest onboarding workflow.
+
 Restart Codex after installing the skill. If the onboarding flow needs the
 repository checkout, the skill will guide the user to clone it at that point.

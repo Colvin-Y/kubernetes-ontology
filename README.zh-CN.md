@@ -90,6 +90,9 @@ npx skills add https://github.com/Colvin-Y/kubernetes-ontology/tree/main/skills/
 npx skills add Colvin-Y/kubernetes-ontology -s kubernetes-ontology-access -g --agent codex
 ```
 
+Skill marketplace 对外链接故意指向默认分支，这样 Agent 会拿到最新的接入
+说明。运行时二进制、镜像和 Helm Chart 版本仍然使用发布 tag。
+
 安装后重启 Codex，然后可以这样提问：
 
 ```text

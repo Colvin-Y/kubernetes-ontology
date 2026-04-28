@@ -122,6 +122,10 @@ You can also install from the repository root and select the skill by name:
 npx skills add Colvin-Y/kubernetes-ontology -s kubernetes-ontology-access -g --agent codex
 ```
 
+Skill marketplace links intentionally point at the default branch so agents get
+the latest onboarding instructions. Use tagged releases for runtime binaries,
+container images, and Helm chart versions.
+
 Restart Codex after installing the skill, then ask for a guided setup, for
 example:
 
@@ -515,6 +519,10 @@ Tagged releases publish:
 - SemVer aliases without the leading `v`, plus `latest`
 
 See [docs/release.md](docs/release.md) for the release checklist.
+
+The agent skill is published from the default branch rather than from release
+archives, so marketplace pages should link to the live repository path:
+`skills/kubernetes-ontology-access`.
 
 ## Known Limitations
 
