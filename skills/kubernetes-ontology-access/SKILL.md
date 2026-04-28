@@ -39,7 +39,11 @@ When this skill triggers, quickly establish:
 - Whether the user is inside a local checkout of this repository.
 - Target cluster context and logical cluster name.
 - Desired namespaces for collection (`contextNamespaces`).
-- Deployment path: Helm + release CLI by default, source build for development.
+- Deployment path: release binary server + client for private clusters or
+  short-lived local diagnosis, Helm + release CLI when cluster nodes can pull
+  the image, source build for development.
+- Whether the environment can reach GitHub Releases and whether cluster nodes
+  can pull `ghcr.io` or an internal mirror.
 - Diagnostic entry, if known: `Pod` or `Workload`, namespace, and name.
 - Whether they want the viewer opened for human inspection.
 
@@ -54,11 +58,16 @@ Explain this once when onboarding a new user:
 - Runtime collection is read-only against observed Kubernetes resources.
 - Helm installs this project's own Deployment, Service, ServiceAccount,
   ConfigMap, viewer, and read-only RBAC.
+- Release binary mode installs nothing in the cluster. It starts
+  `kubernetes-ontologyd` on the host that has kubeconfig access, and optionally
+  starts `kubernetes-ontology-viewer` on that host.
 - The default RBAC includes `get`, `list`, and `watch`; Secret reads are enabled
   so `uses_secret` edges can be collected. Use `--set rbac.readSecrets=false`
   when Secret collection is not acceptable.
 - Keep the HTTP API and viewer behind `kubectl port-forward` or a controlled
   private network. Do not expose them directly to the public internet.
+- For short-lived diagnosis, tell the user exactly how to stop port-forwards,
+  host-local binaries, and Helm resources after use.
 
 ## Repository Pointers
 
@@ -72,7 +81,13 @@ When working from a checkout, read only the files needed for the current task:
 
 ## Recommended Onboarding Flow
 
-Use Helm + release CLI unless the user is developing the project locally.
+Choose the deployment path from network constraints first:
+
+- Use release binary server + client when the cluster is private, air-gapped,
+  cannot pull public images, or the user wants no in-cluster footprint.
+- Use Helm + release CLI when the cluster can pull the configured image, or the
+  image has been mirrored to an internal registry.
+- Use source build only for contributors or local code changes.
 
 Only guide the user to clone the repository when the current path needs files
 from the checkout, such as the local Helm chart under
@@ -97,13 +112,97 @@ Check or ask the user to check:
 ```bash
 kubectl config current-context
 kubectl get namespace
-helm version
 ```
+
+Check `helm version` only for the Helm path. For private environments, explicitly
+ask whether cluster nodes can pull `ghcr.io/colvin-y/kubernetes-ontology` or an
+internal mirror. If they cannot, prefer the release binary path.
 
 If the user expects the agent to run commands, confirm before using any command
 that changes cluster resources, including `helm upgrade --install`.
 
-### 2. Deploy The Helm Chart
+### 2. Release Binary Server + Client
+
+Use this path when the user wants a simple binary workflow or the cluster cannot
+pull the published image. A GitHub Release archive contains:
+
+- `kubernetes-ontologyd`: the read-only server that talks to the Kubernetes API.
+- `kubernetes-ontology`: the CLI client that talks to the server.
+- `kubernetes-ontology-viewer`: optional local viewer.
+- `local/kubernetes-ontology.yaml.example`: a config template.
+
+Download or transfer the archive for the selected version and platform:
+
+```bash
+export KO_VERSION=v0.1.3
+curl -LO "https://github.com/Colvin-Y/kubernetes-ontology/releases/download/${KO_VERSION}/kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
+tar -xzf "kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
+cd "kubernetes-ontology_${KO_VERSION}_linux_amd64"
+```
+
+Use `linux_amd64`, `linux_arm64`, `darwin_amd64`, `darwin_arm64`, or
+`windows_amd64.zip` for other hosts. If the private environment cannot access
+GitHub, tell the user to download the archive elsewhere and transfer it through
+their approved internal channel.
+
+Create or adapt `kubernetes-ontology.yaml`:
+
+```bash
+cp local/kubernetes-ontology.yaml.example kubernetes-ontology.yaml
+```
+
+Then edit the kubeconfig path, logical cluster name, namespace scope, and any
+cluster-specific workload, controller, or CSI rules:
+
+```yaml
+kubeconfig: /absolute/path/to/kubeconfig.yaml
+cluster: your-logical-cluster
+contextNamespaces:
+  - default
+  - kube-system
+server:
+  addr: 127.0.0.1:18080
+bootstrapTimeout: 2m
+streamMode: informer
+```
+
+Run the server in the foreground unless the user explicitly wants a background
+process:
+
+```bash
+./kubernetes-ontologyd --config ./kubernetes-ontology.yaml
+```
+
+If a background process is useful for a short session:
+
+```bash
+nohup ./kubernetes-ontologyd --config ./kubernetes-ontology.yaml > kubernetes-ontologyd.log 2>&1 &
+echo $! > kubernetes-ontologyd.pid
+```
+
+Confirm readiness from another terminal:
+
+```bash
+./kubernetes-ontology --server "http://127.0.0.1:18080" --status
+```
+
+Optional local viewer:
+
+```bash
+./kubernetes-ontology-viewer --server "http://127.0.0.1:18080"
+```
+
+When done, stop foreground processes with `Ctrl-C`. For background processes:
+
+```bash
+kill "$(cat kubernetes-ontologyd.pid)"
+```
+
+If the viewer was backgrounded, kill that PID too. Remind the user to remove
+temporary logs, pid files, and copied kubeconfigs according to their local
+security policy.
+
+### 3. Deploy The Helm Chart
 
 Use a release version and image. If the user did not specify one, use the latest
 project release they selected or the version already present in the repository
@@ -121,6 +220,10 @@ helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \
   --set cluster="your-logical-cluster" \
   --set contextNamespaces='{default,kube-system}'
 ```
+
+For private clusters, mirror the image to an internal registry and set
+`KO_IMAGE` to that mirror. If image mirroring is not available, use the release
+binary path instead.
 
 For all namespaces, remove the `--set contextNamespaces=...` line and use the
 chart default empty list. For no Secret collection:
@@ -206,6 +309,24 @@ Continue only when status shows `Ready: true` or `Phase: ready`. List,
 entity, relation, expand, and diagnostic responses include lowercase
 `freshness.ready` metadata that agents can use after the daemon is serving
 queries. If the daemon is not ready, inspect rollout logs and retry status.
+
+### 6. Cleanup For Short-Lived Use
+
+For Helm path:
+
+```bash
+# Stop any foreground port-forward terminals with Ctrl-C first.
+helm uninstall kubernetes-ontology --namespace kubernetes-ontology
+```
+
+Only delete the namespace if it was created exclusively for this install:
+
+```bash
+kubectl delete namespace kubernetes-ontology
+```
+
+For release binary path, stop `kubernetes-ontologyd` and any viewer process on
+the host. The binary path leaves no cluster-side resources to uninstall.
 
 ## AI-Agent Automatic Troubleshooting
 
@@ -384,6 +505,35 @@ Or use the dependency-free release viewer:
 ```bash
 kubernetes-ontology-viewer --server "http://127.0.0.1:18080"
 ```
+
+## Runtime Footprint And Cleanup
+
+Always make the runtime footprint explicit during onboarding:
+
+- Release binary path starts `kubernetes-ontologyd` on the host, and optionally
+  `kubernetes-ontology-viewer`. It creates no Kubernetes resources.
+- Helm path creates Kubernetes Deployments for the server and viewer, Services,
+  a ServiceAccount, a ConfigMap, and read-only ClusterRole/ClusterRoleBinding
+  resources. It may also require `kubectl port-forward` processes on the user's
+  workstation.
+- Source path starts local `make serve` and optional `make visualize`
+  processes from the checkout.
+
+For short-lived use, tell the user how to clean up before ending the session:
+
+```bash
+# Binary path, when backgrounded:
+kill "$(cat kubernetes-ontologyd.pid)"
+
+# Helm path:
+helm uninstall kubernetes-ontology --namespace kubernetes-ontology
+
+# Source path:
+# stop the foreground make serve / make visualize terminals with Ctrl-C
+```
+
+Only suggest deleting the `kubernetes-ontology` namespace when it was created
+solely for this install and the user confirms no other resources should remain.
 
 ## Source Development Path
 

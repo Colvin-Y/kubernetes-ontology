@@ -20,15 +20,20 @@ memory only: restarting the daemon rebuilds the graph from the Kubernetes API.
 
 | Path | Best for | What runs where |
 | ---- | -------- | --------------- |
+| Release binary server + client | Private or offline clusters whose nodes cannot pull public images, or users who want no in-cluster install | Server, CLI, and optional viewer run on your workstation or a bastion host. |
 | Helm + release CLI | Users who want to try the project without compiling Go code | Server and viewer run in Kubernetes. CLI runs on your workstation. |
 | Source build | Contributors and local development | Server, CLI, and viewer run from this repository. |
 
-If you are unsure, use the Helm path first. Use the source path when changing
-code or testing local patches.
+If cluster nodes can pull `ghcr.io` images, Helm is the most Kubernetes-native
+path. If the cluster is private, air-gapped, or cannot pull public images,
+use the release binary path from a workstation or bastion that can reach the
+Kubernetes API server. Use the source path when changing code or testing local
+patches.
 
 ## Contents
 
 - [Prerequisites](#prerequisites)
+- [No-Compile Path: Release Binary Server + Client](#no-compile-path-release-binary-server--client)
 - [No-Compile Path: Helm + Release CLI](#no-compile-path-helm--release-cli)
 - [Source Path](#source-path)
 - [Query Examples](#query-examples)
@@ -40,14 +45,102 @@ code or testing local patches.
 
 - A kubeconfig with read access to the target cluster.
 - Network access from your machine to the Kubernetes API server.
-- For the no-compile path: `kubectl`, `helm`, and a downloaded
-  `kubernetes-ontology` CLI binary from GitHub Releases.
+- For the release binary path: a downloaded GitHub Release archive. It includes
+  `kubernetes-ontologyd` (server), `kubernetes-ontology` (client), and
+  `kubernetes-ontology-viewer` (optional viewer).
+- For the Helm path: `kubectl`, `helm`, a downloaded `kubernetes-ontology`
+  CLI binary, and cluster-node access to the configured container registry.
 - For local development from source: Go installed locally.
+
+## No-Compile Path: Release Binary Server + Client
+
+Use this path when you want to avoid installing anything in the cluster, or
+when cluster nodes cannot pull the published GHCR image. It runs the read-only
+server on your workstation or a bastion host using your kubeconfig, then points
+the CLI at that local server.
+
+Set the version and choose the release archive for your machine:
+
+```bash
+export KO_VERSION=v0.1.3
+curl -LO "https://github.com/Colvin-Y/kubernetes-ontology/releases/download/${KO_VERSION}/kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
+tar -xzf "kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
+cd "kubernetes-ontology_${KO_VERSION}_linux_amd64"
+```
+
+Use `linux_amd64`, `linux_arm64`, `darwin_amd64`, `darwin_arm64`, or
+`windows_amd64.zip` for other machines. If the environment cannot access
+GitHub, download the archive from a connected network and transfer it through
+your approved internal channel.
+
+Create a local config file. The release archive includes
+`local/kubernetes-ontology.yaml.example`:
+
+```bash
+cp local/kubernetes-ontology.yaml.example kubernetes-ontology.yaml
+```
+
+Edit it for your kubeconfig path and collection scope, or create a minimal
+config:
+
+```yaml
+kubeconfig: /absolute/path/to/kubeconfig.yaml
+cluster: your-logical-cluster
+contextNamespaces:
+  - default
+  - kube-system
+server:
+  addr: 127.0.0.1:18080
+bootstrapTimeout: 2m
+streamMode: informer
+```
+
+Start the server in the foreground:
+
+```bash
+./kubernetes-ontologyd --config ./kubernetes-ontology.yaml
+```
+
+Or keep it in the background for a short diagnostic session:
+
+```bash
+nohup ./kubernetes-ontologyd --config ./kubernetes-ontology.yaml > kubernetes-ontologyd.log 2>&1 &
+echo $! > kubernetes-ontologyd.pid
+```
+
+Query it from another terminal:
+
+```bash
+./kubernetes-ontology --server "http://127.0.0.1:18080" --status
+```
+
+Open the optional local viewer:
+
+```bash
+./kubernetes-ontology-viewer --server "http://127.0.0.1:18080"
+```
+
+The binary path creates no Kubernetes Deployment, Service, ServiceAccount,
+ConfigMap, or RBAC. It creates only host-local processes:
+`kubernetes-ontologyd` for collection/query serving and, if used,
+`kubernetes-ontology-viewer` for the local web UI. Stop foreground processes
+with `Ctrl-C`. Stop background processes when you are done:
+
+```bash
+kill "$(cat kubernetes-ontologyd.pid)"
+```
+
+If you also background the viewer, store and kill its PID the same way. Remove
+any temporary logs, pid files, and copied kubeconfigs according to your local
+security policy.
 
 ## No-Compile Path: Helm + Release CLI
 
 This path runs the server in Kubernetes from a published container image and
 uses `kubectl port-forward` plus the release CLI binary from your machine.
+In private environments, mirror `ghcr.io/colvin-y/kubernetes-ontology` to an
+internal registry and set `KO_IMAGE` to that mirror, or use the release binary
+path above.
 
 Set the version and image namespace you want to use:
 
@@ -143,6 +236,20 @@ Python:
 
 ```bash
 kubernetes-ontology-viewer --server "http://127.0.0.1:18080"
+```
+
+When you are done with a short Helm trial, stop any `kubectl port-forward`
+processes with `Ctrl-C`. To remove the in-cluster footprint:
+
+```bash
+helm uninstall kubernetes-ontology --namespace kubernetes-ontology
+```
+
+Delete the namespace only if it was created just for this trial and contains
+no resources you want to keep:
+
+```bash
+kubectl delete namespace kubernetes-ontology
 ```
 
 ## Source Path

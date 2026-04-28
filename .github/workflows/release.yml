@@ -53,9 +53,11 @@ jobs:
                 -ldflags="-s -w" \
                 -o "${work}/${cmd}${ext}" "./cmd/${cmd}"
             done
-            cp README.md README.zh-CN.md LICENSE "${work}/"
+            cp README.md README.zh-CN.md QUICKSTART.md AI_CONTRACT.md LICENSE "${work}/"
             mkdir -p "${work}/docs"
             cp -R docs/assets "${work}/docs/"
+            mkdir -p "${work}/local"
+            cp local/kubernetes-ontology.yaml.example "${work}/local/"
             if [ "${format}" = "zip" ]; then
               (cd dist && zip -qr "$(basename "${work}").zip" "$(basename "${work}")")
             else
