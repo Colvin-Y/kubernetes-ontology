@@ -8,10 +8,20 @@ This directory contains skills that can be installed into an agent environment.
 users through Helm deployment, release CLI installation, daemon-backed topology
 queries, AI-agent diagnostics, and topology viewer handoff.
 
+See the skill package README for marketplace-friendly metadata, example
+prompts, and install variants:
+[`kubernetes-ontology-access/README.md`](kubernetes-ontology-access/README.md).
+
 Install into Codex directly from GitHub, without cloning this repository first:
 
 ```bash
 npx skills add https://github.com/Colvin-Y/kubernetes-ontology/tree/main/skills/kubernetes-ontology-access -g --agent codex
+```
+
+Or install from the repository and select this skill:
+
+```bash
+npx skills add Colvin-Y/kubernetes-ontology -s kubernetes-ontology-access -g --agent codex
 ```
 
 Restart Codex after installing the skill. If the onboarding flow needs the

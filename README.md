@@ -116,6 +116,12 @@ clone this repository before installing the skill.
 npx skills add https://github.com/Colvin-Y/kubernetes-ontology/tree/main/skills/kubernetes-ontology-access -g --agent codex
 ```
 
+You can also install from the repository root and select the skill by name:
+
+```bash
+npx skills add Colvin-Y/kubernetes-ontology -s kubernetes-ontology-access -g --agent codex
+```
+
 Restart Codex after installing the skill, then ask for a guided setup, for
 example:
 
@@ -173,7 +179,7 @@ the published GHCR image. The release archive includes the server
 viewer `kubernetes-ontology-viewer`.
 
 ```bash
-export KO_VERSION=v0.1.3
+export KO_VERSION=v0.1.4
 curl -LO "https://github.com/Colvin-Y/kubernetes-ontology/releases/download/${KO_VERSION}/kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
 tar -xzf "kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
 cd "kubernetes-ontology_${KO_VERSION}_linux_amd64"
@@ -217,7 +223,7 @@ clusters, mirror `ghcr.io/colvin-y/kubernetes-ontology` to an internal registry
 and set `KO_IMAGE` to that mirror, or use the release binary path above.
 
 ```bash
-export KO_VERSION=v0.1.3
+export KO_VERSION=v0.1.4
 export KO_IMAGE=ghcr.io/colvin-y/kubernetes-ontology
 
 helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \

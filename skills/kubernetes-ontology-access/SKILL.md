@@ -1,6 +1,18 @@
 ---
 name: kubernetes-ontology-access
 description: Use this skill whenever a user wants to onboard, deploy, install, or operate kubernetes-ontology; set up its Helm chart, release CLI, daemon, or topology viewer; run Kubernetes topology queries; diagnose Pod or Workload failures with AI-agent workflows; or connect human visual troubleshooting to the CLI and HTTP API. This skill should trigger for requests about Kubernetes ontology onboarding, Helm deployment, topology query, diagnostic subgraph, ImagePullBackOff or storage/RBAC/Event graph troubleshooting, viewer usage, and agent integration.
+metadata:
+  author: Colvin-Y
+  version: "0.1.4"
+  license: Apache-2.0
+  category: devops
+  tags:
+    - kubernetes
+    - troubleshooting
+    - topology
+    - ontology
+    - ai-agent
+    - devops
 ---
 
 # Kubernetes Ontology Access
@@ -134,7 +146,7 @@ pull the published image. A GitHub Release archive contains:
 Download or transfer the archive for the selected version and platform:
 
 ```bash
-export KO_VERSION=v0.1.3
+export KO_VERSION=v0.1.4
 curl -LO "https://github.com/Colvin-Y/kubernetes-ontology/releases/download/${KO_VERSION}/kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
 tar -xzf "kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
 cd "kubernetes-ontology_${KO_VERSION}_linux_amd64"
@@ -209,7 +221,7 @@ project release they selected or the version already present in the repository
 docs. Do not invent a future version.
 
 ```bash
-export KO_VERSION=v0.1.3
+export KO_VERSION=v0.1.4
 export KO_IMAGE=ghcr.io/colvin-y/kubernetes-ontology
 
 helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \

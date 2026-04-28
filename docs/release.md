@@ -54,11 +54,11 @@ Docker Hub account, namespace, access token, or repository secret.
 Use semantic version tags:
 
 ```bash
-git tag v0.1.3
-git push origin v0.1.3
+git tag v0.1.4
+git push origin v0.1.4
 ```
 
-Replace `v0.1.3` with the release tag you are publishing.
+Replace `v0.1.4` with the release tag you are publishing.
 
 Pushing the tag starts both workflows:
 
@@ -69,8 +69,8 @@ Pushing the tag starts both workflows:
 - `.github/workflows/docker.yml` builds and pushes a multi-architecture image:
 
   ```text
-  ghcr.io/colvin-y/kubernetes-ontology:v0.1.3
-  ghcr.io/colvin-y/kubernetes-ontology:0.1.3
+  ghcr.io/colvin-y/kubernetes-ontology:v0.1.4
+  ghcr.io/colvin-y/kubernetes-ontology:0.1.4
   ghcr.io/colvin-y/kubernetes-ontology:latest
   ```
 
@@ -89,20 +89,20 @@ gh run list --workflow Docker --limit 5
 Check the release assets:
 
 ```bash
-gh release view v0.1.3
+gh release view v0.1.4
 ```
 
 Inspect one archive when release packaging changes:
 
 ```bash
-gh release download v0.1.3 --pattern 'kubernetes-ontology_v0.1.3_linux_amd64.tar.gz' --clobber
-tar -tzf kubernetes-ontology_v0.1.3_linux_amd64.tar.gz | grep -E 'kubernetes-ontologyd$|kubernetes-ontology$|QUICKSTART.md|local/kubernetes-ontology.yaml.example'
+gh release download v0.1.4 --pattern 'kubernetes-ontology_v0.1.4_linux_amd64.tar.gz' --clobber
+tar -tzf kubernetes-ontology_v0.1.4_linux_amd64.tar.gz | grep -E 'kubernetes-ontologyd$|kubernetes-ontology$|QUICKSTART.md|local/kubernetes-ontology.yaml.example'
 ```
 
 Pull the image:
 
 ```bash
-docker pull ghcr.io/colvin-y/kubernetes-ontology:v0.1.3
+docker pull ghcr.io/colvin-y/kubernetes-ontology:v0.1.4
 ```
 
 Deploy through Helm:
@@ -112,7 +112,7 @@ helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \
   --namespace kubernetes-ontology \
   --create-namespace \
   --set image.repository=ghcr.io/colvin-y/kubernetes-ontology \
-  --set image.tag=v0.1.3 \
+  --set image.tag=v0.1.4 \
   --set cluster=your-logical-cluster \
   --set contextNamespaces='{default,kube-system}'
 ```
