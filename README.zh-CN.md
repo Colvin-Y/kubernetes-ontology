@@ -3,7 +3,10 @@
 [English](README.md) | [中文说明](README.zh-CN.md)
 
 <p align="center">
-  <img src="docs/assets/topology-viewer.jpg" alt="Topology viewer showing a Kubernetes diagnostic graph for CoreDNS" width="100%">
+  <img src="docs/assets/image-pull-demo.gif" alt="Topology viewer 展示 ImagePullBackOff 诊断图" width="100%">
+</p>
+<p align="center">
+  <sub>真实 viewer 页面捕获：从一个故障 Pod 展开 workload、Service、配置、身份/RBAC、镜像和 Event 证据。</sub>
 </p>
 
 `kubernetes-ontology` 是一个只读的 Kubernetes 拓扑和诊断服务。它从
