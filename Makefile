@@ -41,7 +41,7 @@ DAEMON_CONFIG_OVERRIDES = $(CLI_CONFIG_OVERRIDES) $(call make_arg,SERVER_ADDR,ad
 CLI_CONFIG_ARGS = $(if $(CONFIG),--config "$(CONFIG)" $(CLI_CONFIG_OVERRIDES),--kubeconfig "$(KUBECONFIG)" --cluster "$(CLUSTER)" --context-namespaces "$(CONTEXT_NAMESPACES)" --workload-resources "$(WORKLOAD_RESOURCES)" --controller-rules "$(CONTROLLER_RULES)" --bootstrap-timeout "$(BOOTSTRAP_TIMEOUT)")
 DAEMON_CONFIG_ARGS = $(if $(CONFIG),--config "$(CONFIG)" $(DAEMON_CONFIG_OVERRIDES),--kubeconfig "$(KUBECONFIG)" --cluster "$(CLUSTER)" --context-namespaces "$(CONTEXT_NAMESPACES)" --workload-resources "$(WORKLOAD_RESOURCES)" --controller-rules "$(CONTROLLER_RULES)" --addr "$(SERVER_ADDR)" --bootstrap-timeout "$(BOOTSTRAP_TIMEOUT)" --poll-interval "$(POLL_INTERVAL)")
 
-.PHONY: build build-daemon build-viewer docker-build owl test verify run serve status status-server list-entities-server get-entity-server list-relations-server neighbors-server expand-node-server collapse-node-graph observe-status diagnose-pod diagnose-workload diagnose-pod-server diagnose-workload-server visualize visualize-go visualize-check live-check verify-live require-kubeconfig require-entry
+.PHONY: build build-daemon build-viewer docker-build owl test verify ci ci-go ci-helm ci-binaries ci-client ci-visualize run serve status status-server list-entities-server get-entity-server list-relations-server neighbors-server expand-node-server collapse-node-graph observe-status diagnose-pod diagnose-workload diagnose-pod-server diagnose-workload-server visualize visualize-go visualize-check live-check verify-live require-kubeconfig require-entry
 
 build:
 	mkdir -p bin
@@ -65,6 +65,22 @@ test:
 	go test -p 1 ./...
 
 verify: test visualize-check
+
+ci: ci-go ci-helm ci-binaries ci-client ci-visualize
+
+ci-go: test
+
+ci-helm:
+	bash scripts/ci/verify_helm.sh
+
+ci-binaries:
+	bash scripts/ci/verify_binaries.sh
+
+ci-client: build
+	bash scripts/ci/verify_client.sh
+
+ci-visualize: build-viewer visualize-check
+	bash scripts/ci/verify_viewer.sh
 
 run: build
 	$(BINARY) $(ARGS)
