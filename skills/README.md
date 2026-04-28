@@ -1,7 +1,6 @@
 # Project Skills
 
-This directory contains project-local skills that can be installed into an
-agent environment.
+This directory contains skills that can be installed into an agent environment.
 
 ## kubernetes-ontology-access
 
@@ -9,11 +8,11 @@ agent environment.
 users through Helm deployment, release CLI installation, daemon-backed topology
 queries, AI-agent diagnostics, and topology viewer handoff.
 
-Install into Codex:
+Install into Codex directly from GitHub, without cloning this repository first:
 
 ```bash
-mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
-cp -R skills/kubernetes-ontology-access "${CODEX_HOME:-$HOME/.codex}/skills/"
+npx skills add https://github.com/Colvin-Y/kubernetes-ontology/tree/main/skills/kubernetes-ontology-access -g --agent codex
 ```
 
-Restart Codex after installing the skill.
+Restart Codex after installing the skill. If the onboarding flow needs the
+repository checkout, the skill will guide the user to clone it at that point.

@@ -107,11 +107,12 @@ Recovered evidence can include relations such as:
 
 This repository provides a Codex-style skill:
 [`skills/kubernetes-ontology-access`](skills/kubernetes-ontology-access/SKILL.md).
-Install it directly from the checkout when you want an AI agent to guide the
-whole onboarding flow instead of reading the docs manually.
+Install it directly from GitHub when you want an AI agent to guide the whole
+onboarding flow instead of reading the docs manually. Users do not need to
+clone this repository before installing the skill.
 
 ```bash
-npm skill install ./skills/kubernetes-ontology-access
+npx skills add https://github.com/Colvin-Y/kubernetes-ontology/tree/main/skills/kubernetes-ontology-access -g --agent codex
 ```
 
 Restart Codex after installing the skill, then ask for a guided setup, for

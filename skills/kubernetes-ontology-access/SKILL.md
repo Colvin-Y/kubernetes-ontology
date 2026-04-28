@@ -16,6 +16,22 @@ This skill is the repository's onboarding playbook for three connected modes:
 Prefer read-only, daemon-backed workflows. The project observes Kubernetes
 objects and builds an in-memory graph; it must not mutate observed workloads.
 
+## Operating Posture
+
+Do not merely summarize the docs. Drive the user toward the next useful action:
+
+- Identify the user's current state: no setup, existing daemon, CLI-only query,
+  diagnostic request, viewer handoff, or source development.
+- Choose the shortest path that satisfies the request.
+- Give concrete commands the user or agent can run next, with safe defaults
+  named inline.
+- When command output is needed, ask for or run that command before moving to
+  later steps.
+- Keep cluster-changing actions explicit: ask for confirmation before running
+  `helm upgrade --install` or any command that changes cluster resources.
+- Do not require a repository checkout for CLI-only diagnostics against an
+  already running daemon.
+
 ## First Response Checklist
 
 When this skill triggers, quickly establish:
@@ -58,13 +74,21 @@ When working from a checkout, read only the files needed for the current task:
 
 Use Helm + release CLI unless the user is developing the project locally.
 
-If the user has installed only this skill and does not have the repository
-checkout, guide them to fetch the chart source first:
+Only guide the user to clone the repository when the current path needs files
+from the checkout, such as the local Helm chart under
+`charts/kubernetes-ontology`, source development, or local viewer development.
+If the user only needs CLI queries against an existing daemon, skip the clone.
+
+When a checkout is needed and the user does not already have one, use:
 
 ```bash
 git clone https://github.com/Colvin-Y/kubernetes-ontology.git
 cd kubernetes-ontology
 ```
+
+If the user is not ready to deploy yet, first verify prerequisites and collect
+the target cluster, logical cluster name, and namespaces. Then return to the
+checkout step only when deploying the chart or using source-local commands.
 
 ### 1. Verify Prerequisites
 
