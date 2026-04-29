@@ -1,7 +1,7 @@
 # Release Guide
 
-This project publishes binaries through GitHub Releases and container images
-through GitHub Container Registry (GHCR).
+This project publishes binaries and a packaged Helm chart through GitHub
+Releases, plus container images through GitHub Container Registry (GHCR).
 
 Docker Hub is optional. The default open-source release path does not require a
 Docker Hub account, namespace, access token, or repository secret.
@@ -51,26 +51,40 @@ Docker Hub account, namespace, access token, or repository secret.
 
 ## Publish A Version
 
+Before tagging, run local validation from a disposable kind cluster and an
+explicit kubeconfig. Do not let release checks fall back to an ambient
+developer kubeconfig:
+
+```bash
+export KO_KIND_KUBECONFIG=/private/tmp/kubernetes-ontology-kind-kubeconfig
+kind export kubeconfig --name kind --kubeconfig "${KO_KIND_KUBECONFIG}"
+KUBECONFIG="${KO_KIND_KUBECONFIG}" make ci
+kubectl --kubeconfig "${KO_KIND_KUBECONFIG}" get nodes
+```
+
+Then run the live diagnostic smoke tests against that same kubeconfig.
+
 Use semantic version tags:
 
 ```bash
-git tag v0.1.4
-git push origin v0.1.4
+git tag v0.1.5
+git push origin v0.1.5
 ```
 
-Replace `v0.1.4` with the release tag you are publishing.
+Replace `v0.1.5` with the release tag you are publishing.
 
 Pushing the tag starts both workflows:
 
 - `.github/workflows/release.yml` creates a GitHub Release and uploads
   per-platform archives containing `kubernetes-ontology` (CLI),
   `kubernetes-ontologyd` (server), `kubernetes-ontology-viewer`, README files,
-  `QUICKSTART.md`, `AI_CONTRACT.md`, and the local config example.
+  `QUICKSTART.md`, `CHANGELOG.md`, `AI_CONTRACT.md`, the local config example,
+  and a packaged Helm chart archive.
 - `.github/workflows/docker.yml` builds and pushes a multi-architecture image:
 
   ```text
-  ghcr.io/colvin-y/kubernetes-ontology:v0.1.4
-  ghcr.io/colvin-y/kubernetes-ontology:0.1.4
+  ghcr.io/colvin-y/kubernetes-ontology:v0.1.5
+  ghcr.io/colvin-y/kubernetes-ontology:0.1.5
   ghcr.io/colvin-y/kubernetes-ontology:latest
   ```
 
@@ -89,20 +103,23 @@ gh run list --workflow Docker --limit 5
 Check the release assets:
 
 ```bash
-gh release view v0.1.4
+gh release view v0.1.5
 ```
 
-Inspect one archive when release packaging changes:
+Inspect one binary archive and the Helm chart archive when release packaging
+changes:
 
 ```bash
-gh release download v0.1.4 --pattern 'kubernetes-ontology_v0.1.4_linux_amd64.tar.gz' --clobber
-tar -tzf kubernetes-ontology_v0.1.4_linux_amd64.tar.gz | grep -E 'kubernetes-ontologyd$|kubernetes-ontology$|QUICKSTART.md|local/kubernetes-ontology.yaml.example'
+gh release download v0.1.5 --pattern 'kubernetes-ontology_v0.1.5_linux_amd64.tar.gz' --clobber
+tar -tzf kubernetes-ontology_v0.1.5_linux_amd64.tar.gz | grep -E 'kubernetes-ontologyd$|kubernetes-ontology$|QUICKSTART.md|local/kubernetes-ontology.yaml.example'
+gh release download v0.1.5 --pattern 'kubernetes-ontology-0.1.5.tgz' --clobber
+helm show chart kubernetes-ontology-0.1.5.tgz
 ```
 
 Pull the image:
 
 ```bash
-docker pull ghcr.io/colvin-y/kubernetes-ontology:v0.1.4
+docker pull ghcr.io/colvin-y/kubernetes-ontology:v0.1.5
 ```
 
 Deploy through Helm:
@@ -112,7 +129,7 @@ helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \
   --namespace kubernetes-ontology \
   --create-namespace \
   --set image.repository=ghcr.io/colvin-y/kubernetes-ontology \
-  --set image.tag=v0.1.4 \
+  --set image.tag=v0.1.5 \
   --set cluster=your-logical-cluster \
   --set contextNamespaces='{default,kube-system}'
 ```

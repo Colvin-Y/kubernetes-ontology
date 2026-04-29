@@ -62,7 +62,7 @@ the CLI at that local server.
 Set the version and choose the release archive for your machine:
 
 ```bash
-export KO_VERSION=v0.1.4
+export KO_VERSION=v0.1.5
 curl -LO "https://github.com/Colvin-Y/kubernetes-ontology/releases/download/${KO_VERSION}/kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
 tar -xzf "kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
 cd "kubernetes-ontology_${KO_VERSION}_linux_amd64"
@@ -145,7 +145,7 @@ path above.
 Set the version and image namespace you want to use:
 
 ```bash
-export KO_VERSION=v0.1.4
+export KO_VERSION=v0.1.5
 export KO_IMAGE=ghcr.io/colvin-y/kubernetes-ontology
 ```
 

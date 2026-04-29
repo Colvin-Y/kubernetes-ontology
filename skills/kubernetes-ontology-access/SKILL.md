@@ -146,7 +146,7 @@ pull the published image. A GitHub Release archive contains:
 Download or transfer the archive for the selected version and platform:
 
 ```bash
-export KO_VERSION=v0.1.4
+export KO_VERSION=v0.1.5
 curl -LO "https://github.com/Colvin-Y/kubernetes-ontology/releases/download/${KO_VERSION}/kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
 tar -xzf "kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
 cd "kubernetes-ontology_${KO_VERSION}_linux_amd64"
@@ -221,7 +221,7 @@ project release they selected or the version already present in the repository
 docs. Do not invent a future version.
 
 ```bash
-export KO_VERSION=v0.1.4
+export KO_VERSION=v0.1.5
 export KO_IMAGE=ghcr.io/colvin-y/kubernetes-ontology
 
 helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \

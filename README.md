@@ -191,7 +191,7 @@ the published GHCR image. The release archive includes the server
 viewer `kubernetes-ontology-viewer`.
 
 ```bash
-export KO_VERSION=v0.1.4
+export KO_VERSION=v0.1.5
 curl -LO "https://github.com/Colvin-Y/kubernetes-ontology/releases/download/${KO_VERSION}/kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
 tar -xzf "kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
 cd "kubernetes-ontology_${KO_VERSION}_linux_amd64"
@@ -235,7 +235,7 @@ clusters, mirror `ghcr.io/colvin-y/kubernetes-ontology` to an internal registry
 and set `KO_IMAGE` to that mirror, or use the release binary path above.
 
 ```bash
-export KO_VERSION=v0.1.4
+export KO_VERSION=v0.1.5
 export KO_IMAGE=ghcr.io/colvin-y/kubernetes-ontology
 
 helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \
@@ -531,12 +531,16 @@ make live-check NAMESPACE=default NAME=my-pod
 Tagged releases publish:
 
 - per-platform archives containing `kubernetes-ontology`, `kubernetes-ontologyd`,
-  `kubernetes-ontology-viewer`, Quickstart docs, and a local config example
+  `kubernetes-ontology-viewer`, Quickstart docs, release notes, and a local
+  config example
+- a packaged Helm chart archive, for example
+  `kubernetes-ontology-0.1.5.tgz`
 - a multi-architecture image at
   `ghcr.io/colvin-y/kubernetes-ontology:<tag>`
 - SemVer aliases without the leading `v`, plus `latest`
 
 See [docs/release.md](docs/release.md) for the release checklist.
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 The agent skill is published from the default branch rather than from release
 archives, so marketplace pages should link to the live repository path:
@@ -573,6 +577,7 @@ archives, so marketplace pages should link to the live repository path:
 - [docs/design/README.md](docs/design/README.md): design document index
 - [docs/ontology/README.md](docs/ontology/README.md): ontology notes
 - [docs/release.md](docs/release.md): release checklist
+- [CHANGELOG.md](CHANGELOG.md): release notes
 
 ## License
 
