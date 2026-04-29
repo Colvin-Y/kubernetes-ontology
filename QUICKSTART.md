@@ -556,6 +556,22 @@ When resources carry standard Helm metadata, diagnostic graphs can also include
 `installs_chart` edges. These edges are label evidence with confidence scores,
 not exact Helm manifest membership.
 
+For a failed Helm upgrade where the user does not have CLI output, start from
+the release and inspect current cluster evidence:
+
+```bash
+kubernetes-ontology \
+  --server "http://127.0.0.1:18080" \
+  --diagnose-helm-release \
+  --namespace default \
+  --name my-release
+```
+
+The response can identify release-owned resources, rollout blockers, Events,
+and probable chart ownership. It cannot observe Helm template, values,
+repository, client, hook, or `--atomic` rollback errors unless the user provides
+the Helm output.
+
 Pod-centered diagnostic queries keep shared nodes bounded by default. For
 example, a pod's `ServiceAccount` is shown, but the traversal does not continue
 through that ServiceAccount to every other pod using it. Use

@@ -70,6 +70,21 @@ Helm 关系会以 `managed_by_helm_release` 和 `installs_chart` 边呈现，
 provenance 是 `label_evidence`，并带 confidence。它们是标签证据下的归属
 提示，不等同于精确 manifest 成员关系。
 
+如果用户说“helm upgrade 失败了”但没有 Helm CLI 输出，可以先从当前集群状态
+诊断 release：
+
+```bash
+kubernetes-ontology \
+  --server "http://127.0.0.1:18080" \
+  --diagnose-helm-release \
+  --namespace default \
+  --name my-release
+```
+
+返回结果会展示 release 可能管理的资源、chart 证据、rollout 阻塞点和事件。
+同时也会明确标记：template、values、repo/client、hook、`--atomic` rollback
+原始错误需要用户提供 Helm stderr/status/history 才能判断。
+
 运行时支持：
 
 - 启动时全量快照
@@ -311,6 +326,16 @@ OpenKruise，这是正常情况，不需要为此中断启动。
   --name my-pod \
   --max-nodes 200 \
   --max-edges 400
+```
+
+诊断 Helm release：
+
+```bash
+./bin/kubernetes-ontology \
+  --server "http://127.0.0.1:18080" \
+  --diagnose-helm-release \
+  --namespace default \
+  --name my-release
 ```
 
 诊断返回会额外包含 `partial`、`warnings`、`budgets`、

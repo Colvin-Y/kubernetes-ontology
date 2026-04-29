@@ -156,16 +156,19 @@ func (s *Service) GetDiagnosticSubgraphContext(ctx context.Context, entry api.En
 	budget.TruncationReasons = sortedReasons(truncationReasons)
 	budget.Truncated = len(budget.TruncationReasons) > 0
 	explanations := summarizeEvidence(nodes)
+	helmContext := analyzeHelmContext(nodes, edges)
 	return api.DiagnosticSubgraph{
-		Entry:          entry,
-		Nodes:          nodes,
-		Edges:          edges,
-		CollectedAt:    &now,
-		Explanation:    explanations,
-		Warnings:       diagnosticWarnings(budget),
-		Partial:        budget.Truncated,
-		Budgets:        budget,
-		RankedEvidence: rankEvidence(nodes),
+		Entry:           entry,
+		Nodes:           nodes,
+		Edges:           edges,
+		CollectedAt:     &now,
+		Explanation:     explanations,
+		Warnings:        diagnosticWarnings(budget, helmContext),
+		Partial:         budget.Truncated,
+		DegradedSources: diagnosticDegradedSources(helmContext),
+		Budgets:         budget,
+		RankedEvidence:  rankEvidence(nodes, edges),
+		Conflicts:       helmContext.Conflicts,
 	}, nil
 }
 
@@ -285,20 +288,130 @@ func sortedReasons(reasons map[string]struct{}) []string {
 	return out
 }
 
-func diagnosticWarnings(budget api.DiagnosticBudget) []api.DiagnosticWarning {
-	if !budget.Truncated {
-		return nil
-	}
-	return []api.DiagnosticWarning{{
-		Code:       "diagnostic_budget_exceeded",
-		Severity:   "warning",
-		Message:    fmt.Sprintf("diagnostic graph was truncated by budget: %s", strings.Join(budget.TruncationReasons, ",")),
-		Source:     "diagnostic",
-		NextAction: "rerun with a narrower namespace/depth or raise --max-nodes/--max-edges",
-	}}
+type helmDiagnosticContext struct {
+	HasEvidence      bool
+	HasLabelEvidence bool
+	Conflicts        []api.DiagnosticConflict
 }
 
-func rankEvidence(nodes []api.DiagnosticNode) []api.RankedEvidence {
+func analyzeHelmContext(nodes []api.DiagnosticNode, edges []api.DiagnosticEdge) helmDiagnosticContext {
+	ctx := helmDiagnosticContext{}
+	for _, node := range nodes {
+		if node.Kind == api.NodeKindHelmRelease || node.Kind == api.NodeKindHelmChart {
+			ctx.HasEvidence = true
+		}
+	}
+	releasesByResource := map[string]map[string]struct{}{}
+	edgeKeysByResource := map[string][]string{}
+	for _, edge := range edges {
+		switch edge.Kind {
+		case api.EdgeKindManagedByHelmRelease, api.EdgeKindInstallsChart:
+			ctx.HasEvidence = true
+			if edge.Provenance.SourceType == api.EdgeSourceTypeLabelEvidence {
+				ctx.HasLabelEvidence = true
+			}
+		}
+		if edge.Kind != api.EdgeKindManagedByHelmRelease {
+			continue
+		}
+		if releasesByResource[edge.From] == nil {
+			releasesByResource[edge.From] = map[string]struct{}{}
+		}
+		releasesByResource[edge.From][edge.To] = struct{}{}
+		edgeKeysByResource[edge.From] = append(edgeKeysByResource[edge.From], diagnosticEdgeKey(edge))
+	}
+	for resourceID, releaseIDs := range releasesByResource {
+		if len(releaseIDs) < 2 {
+			continue
+		}
+		nodeIDs := []string{resourceID}
+		for releaseID := range releaseIDs {
+			nodeIDs = append(nodeIDs, releaseID)
+		}
+		sort.Strings(nodeIDs[1:])
+		edgeKeys := append([]string(nil), edgeKeysByResource[resourceID]...)
+		sort.Strings(edgeKeys)
+		ctx.Conflicts = append(ctx.Conflicts, api.DiagnosticConflict{
+			Code:       "helm_ownership_conflict",
+			Message:    "resource has multiple Helm release ownership hints; do not select one owner without stronger Helm CLI output or release manifest evidence",
+			NodeIDs:    nodeIDs,
+			EdgeKeys:   edgeKeys,
+			Confidence: "conflicting",
+		})
+	}
+	sort.SliceStable(ctx.Conflicts, func(i, j int) bool {
+		if ctx.Conflicts[i].Code != ctx.Conflicts[j].Code {
+			return ctx.Conflicts[i].Code < ctx.Conflicts[j].Code
+		}
+		if len(ctx.Conflicts[i].NodeIDs) == 0 || len(ctx.Conflicts[j].NodeIDs) == 0 {
+			return len(ctx.Conflicts[i].NodeIDs) < len(ctx.Conflicts[j].NodeIDs)
+		}
+		return ctx.Conflicts[i].NodeIDs[0] < ctx.Conflicts[j].NodeIDs[0]
+	})
+	return ctx
+}
+
+func diagnosticWarnings(budget api.DiagnosticBudget, helmContext helmDiagnosticContext) []api.DiagnosticWarning {
+	warnings := make([]api.DiagnosticWarning, 0, 3)
+	if budget.Truncated {
+		warnings = append(warnings, api.DiagnosticWarning{
+			Code:       "diagnostic_budget_exceeded",
+			Severity:   "warning",
+			Message:    fmt.Sprintf("diagnostic graph was truncated by budget: %s", strings.Join(budget.TruncationReasons, ",")),
+			Source:     "diagnostic",
+			NextAction: "rerun with a narrower namespace/depth or raise --max-nodes/--max-edges",
+		})
+	}
+	if helmContext.HasEvidence {
+		warnings = append(warnings, api.DiagnosticWarning{
+			Code:       "helm_cli_output_not_observed",
+			Severity:   "info",
+			Message:    "diagnostic uses current Kubernetes objects and Helm metadata only; Helm template, values, repository, client, hook, and --atomic rollback errors are not observable without user-provided Helm output",
+			Source:     "helm",
+			NextAction: "paste helm upgrade stderr or run helm status/history when the failure happened before or outside Kubernetes rollout",
+		})
+	}
+	if helmContext.HasLabelEvidence {
+		warnings = append(warnings, api.DiagnosticWarning{
+			Code:       "helm_manifest_evidence_not_collected",
+			Severity:   "info",
+			Message:    "Helm ownership is inferred from labels/annotations; exact release manifest membership is not collected in the default diagnostic path",
+			Source:     "helm",
+			NextAction: "treat Helm ownership as probable evidence unless the user provides Helm status/history or an opt-in release manifest source is available",
+		})
+	}
+	if len(warnings) == 0 {
+		return nil
+	}
+	return warnings
+}
+
+func diagnosticDegradedSources(helmContext helmDiagnosticContext) []api.DegradedSource {
+	sources := make([]api.DegradedSource, 0, 2)
+	if helmContext.HasEvidence {
+		sources = append(sources, api.DegradedSource{
+			Source:     "helm_cli_output",
+			Status:     "not_collected",
+			Reason:     "outside_kubernetes_api",
+			Message:    "Helm stderr, status, and history are not available from current cluster objects",
+			Retryable:  false,
+			NextAction: "ask the user to paste helm upgrade output for template, values, repository, client, hook, or rollback-stage failures",
+		})
+	}
+	if helmContext.HasLabelEvidence {
+		sources = append(sources, api.DegradedSource{
+			Source:     "helm_release_manifest",
+			Status:     "not_collected",
+			Reason:     "label_evidence_only",
+			Message:    "Exact Helm release manifest membership is not collected in the default diagnostic path",
+			Retryable:  false,
+			NextAction: "use the returned label evidence as probable ownership, not proof of exact manifest membership",
+		})
+	}
+	return sources
+}
+
+func rankEvidence(nodes []api.DiagnosticNode, edges []api.DiagnosticEdge) []api.RankedEvidence {
 	items := make([]api.RankedEvidence, 0)
 	for _, node := range nodes {
 		if node.Kind != api.NodeKindEvent {
@@ -321,6 +434,7 @@ func rankEvidence(nodes []api.DiagnosticNode) []api.RankedEvidence {
 			Score:      score,
 		})
 	}
+	items = append(items, rankHelmEvidence(nodes, edges)...)
 	sort.SliceStable(items, func(i, j int) bool {
 		if items[i].Score != items[j].Score {
 			return items[i].Score > items[j].Score
@@ -337,6 +451,87 @@ func rankEvidence(nodes []api.DiagnosticNode) []api.RankedEvidence {
 		items[i].Rank = i + 1
 	}
 	return items
+}
+
+func rankHelmEvidence(nodes []api.DiagnosticNode, edges []api.DiagnosticEdge) []api.RankedEvidence {
+	nodeByID := make(map[string]api.DiagnosticNode, len(nodes))
+	for _, node := range nodes {
+		nodeByID[node.CanonicalID] = node
+	}
+	items := make([]api.RankedEvidence, 0)
+	for _, edge := range edges {
+		switch edge.Kind {
+		case api.EdgeKindManagedByHelmRelease:
+			resource := nodeByID[edge.From]
+			release := nodeByID[edge.To]
+			items = append(items, api.RankedEvidence{
+				Source:     "helm",
+				EdgeKey:    diagnosticEdgeKey(edge),
+				Kind:       string(edge.Kind),
+				Severity:   "info",
+				Reason:     "HelmOwnershipEvidence",
+				Message:    fmt.Sprintf("%s %s is probably managed by Helm release %s", nodeLabel(resource), nodeName(resource), nodeName(release)),
+				Confidence: confidenceLabel(edge.Provenance.Confidence),
+				Score:      helmEvidenceScore(edge.Provenance.Confidence, 70),
+			})
+		case api.EdgeKindInstallsChart:
+			release := nodeByID[edge.From]
+			chart := nodeByID[edge.To]
+			items = append(items, api.RankedEvidence{
+				Source:     "helm",
+				EdgeKey:    diagnosticEdgeKey(edge),
+				Kind:       string(edge.Kind),
+				Severity:   "info",
+				Reason:     "HelmChartEvidence",
+				Message:    fmt.Sprintf("Helm release %s installs chart %s", nodeName(release), nodeName(chart)),
+				Confidence: confidenceLabel(edge.Provenance.Confidence),
+				Score:      helmEvidenceScore(edge.Provenance.Confidence, 60),
+			})
+		}
+	}
+	return items
+}
+
+func diagnosticEdgeKey(edge api.DiagnosticEdge) string {
+	return edge.From + "|" + string(edge.Kind) + "|" + edge.To
+}
+
+func nodeLabel(node api.DiagnosticNode) string {
+	if node.Kind == "" {
+		return "resource"
+	}
+	return string(node.Kind)
+}
+
+func nodeName(node api.DiagnosticNode) string {
+	if node.Name == "" {
+		return node.CanonicalID
+	}
+	if node.Namespace == "" {
+		return node.Name
+	}
+	return node.Namespace + "/" + node.Name
+}
+
+func confidenceLabel(confidence *float64) string {
+	if confidence == nil {
+		return "unknown"
+	}
+	switch {
+	case *confidence >= 0.85:
+		return "strong"
+	case *confidence >= 0.6:
+		return "medium"
+	default:
+		return "weak"
+	}
+}
+
+func helmEvidenceScore(confidence *float64, base float64) float64 {
+	if confidence == nil {
+		return base * 0.5
+	}
+	return base * *confidence
 }
 
 func classifyEventEvidence(reason, message string) (string, float64) {
@@ -378,7 +573,10 @@ func (s *Service) shouldTraverseFrom(current model.CanonicalID, currentNode mode
 	}
 	switch currentNode.Kind {
 	case model.NodeKindHelmRelease:
-		return edge.From == current && edge.Kind == model.EdgeKindInstallsChart
+		if edge.From == current && edge.Kind == model.EdgeKindInstallsChart {
+			return true
+		}
+		return rootNode.Kind == model.NodeKindHelmRelease && edge.To == current && edge.Kind == model.EdgeKindManagedByHelmRelease
 	case model.NodeKindStorageClass:
 		return edge.From == current && edge.Kind == model.EdgeKindProvisionedByCSIDriver
 	case model.NodeKindPV:

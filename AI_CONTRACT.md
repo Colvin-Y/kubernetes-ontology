@@ -223,6 +223,20 @@ relationships use `provenance.sourceType=label_evidence`,
 `provenance.state=inferred`, and a numeric confidence. Treat them as strong or
 weak ownership hints until exact Helm release manifest evidence is collected.
 
+For Helm upgrade failures, the diagnostic graph describes current Kubernetes
+state plus Helm metadata already visible in the cluster. It cannot observe Helm
+CLI stderr, chart rendering, values schema validation, repository/client
+authentication, hook execution semantics, or the original failure hidden by
+`--atomic` rollback unless the user provides that output. When Helm evidence is
+present, agents should expect:
+
+- a `helm_cli_output_not_observed` warning
+- a `helm_manifest_evidence_not_collected` warning for label-derived ownership
+- `helm_cli_output` and `helm_release_manifest` entries in `degradedSources`
+- `HelmOwnershipEvidence` / `HelmChartEvidence` entries in `rankedEvidence`
+- `helm_ownership_conflict` conflicts when one resource points at multiple
+  candidate releases
+
 AI-Agent code should assume these meanings are stable, even if the set of returned nodes varies by policy.
 
 ## What AI-Agent code should treat as optional

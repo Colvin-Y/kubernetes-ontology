@@ -341,6 +341,103 @@ func TestGetDiagnosticSubgraphRanksEventEvidence(t *testing.T) {
 	}
 }
 
+func TestGetDiagnosticSubgraphForHelmReleaseIncludesOwnedResourcesAndChart(t *testing.T) {
+	store := memorystore.NewStore()
+	kernel := graph.NewKernel(store, store)
+	service := NewService(kernel)
+
+	release := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "helm.sh", Kind: "HelmRelease", Namespace: "payments", Name: "checkout", UID: "_"}), Kind: model.NodeKindHelmRelease, SourceKind: "HelmRelease", Name: "checkout", Namespace: "payments"}
+	chart := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "helm.sh", Kind: "HelmChart", Name: "checkout-api", UID: "1.2.3"}), Kind: model.NodeKindHelmChart, SourceKind: "HelmChart", Name: "checkout-api"}
+	workload := model.Node{ID: model.WorkloadID("cluster-a", "payments", "Deployment", "checkout-api", "w1"), Kind: model.NodeKindWorkload, SourceKind: "Deployment", Name: "checkout-api", Namespace: "payments"}
+	serviceNode := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "Service", Namespace: "payments", Name: "checkout-api", UID: "s1"}), Kind: model.NodeKindService, SourceKind: "Service", Name: "checkout-api", Namespace: "payments"}
+	for _, node := range []model.Node{release, chart, workload, serviceNode} {
+		if err := kernel.UpsertNode(node); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, edge := range []model.Edge{
+		helmTestEdge(workload.ID, release.ID, model.EdgeKindManagedByHelmRelease, 0.9),
+		helmTestEdge(serviceNode.ID, release.ID, model.EdgeKindManagedByHelmRelease, 0.9),
+		helmTestEdge(release.ID, chart.ID, model.EdgeKindInstallsChart, 0.9),
+	} {
+		if err := kernel.UpsertEdge(edge); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	result, err := service.GetDiagnosticSubgraph(api.EntryRef{
+		Kind:        api.NodeKindHelmRelease,
+		CanonicalID: release.ID.String(),
+		Namespace:   "payments",
+		Name:        "checkout",
+	}, api.ExpansionPolicy{MaxDepth: 1, MaxNodes: 20, MaxEdges: 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !diagnosticContainsKind(result.Nodes, api.NodeKindWorkload) || !diagnosticContainsKind(result.Nodes, api.NodeKindService) || !diagnosticContainsKind(result.Nodes, api.NodeKindHelmChart) {
+		t.Fatalf("expected HelmRelease diagnostic to include owned resources and chart, got %#v", result.Nodes)
+	}
+	if !hasWarning(result.Warnings, "helm_cli_output_not_observed") || !hasWarning(result.Warnings, "helm_manifest_evidence_not_collected") {
+		t.Fatalf("expected Helm boundary warnings, got %#v", result.Warnings)
+	}
+	if !hasDegradedSource(result.DegradedSources, "helm_cli_output") || !hasDegradedSource(result.DegradedSources, "helm_release_manifest") {
+		t.Fatalf("expected Helm degraded sources, got %#v", result.DegradedSources)
+	}
+	if !hasRankedEvidence(result.RankedEvidence, "HelmOwnershipEvidence") || !hasRankedEvidence(result.RankedEvidence, "HelmChartEvidence") {
+		t.Fatalf("expected Helm ranked evidence, got %#v", result.RankedEvidence)
+	}
+}
+
+func TestGetDiagnosticSubgraphReportsHelmOwnershipConflicts(t *testing.T) {
+	store := memorystore.NewStore()
+	kernel := graph.NewKernel(store, store)
+	service := NewService(kernel)
+
+	workload := model.Node{ID: model.WorkloadID("cluster-a", "payments", "Deployment", "checkout-api", "w1"), Kind: model.NodeKindWorkload, SourceKind: "Deployment", Name: "checkout-api", Namespace: "payments"}
+	releaseA := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "helm.sh", Kind: "HelmRelease", Namespace: "payments", Name: "checkout-a", UID: "_"}), Kind: model.NodeKindHelmRelease, SourceKind: "HelmRelease", Name: "checkout-a", Namespace: "payments"}
+	releaseB := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "helm.sh", Kind: "HelmRelease", Namespace: "payments", Name: "checkout-b", UID: "_"}), Kind: model.NodeKindHelmRelease, SourceKind: "HelmRelease", Name: "checkout-b", Namespace: "payments"}
+	for _, node := range []model.Node{workload, releaseA, releaseB} {
+		if err := kernel.UpsertNode(node); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, edge := range []model.Edge{
+		helmTestEdge(workload.ID, releaseA.ID, model.EdgeKindManagedByHelmRelease, 0.9),
+		helmTestEdge(workload.ID, releaseB.ID, model.EdgeKindManagedByHelmRelease, 0.85),
+	} {
+		if err := kernel.UpsertEdge(edge); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	result, err := service.GetDiagnosticSubgraph(api.EntryRef{
+		Kind:        api.NodeKindWorkload,
+		CanonicalID: workload.ID.String(),
+		Namespace:   "payments",
+		Name:        "checkout-api",
+	}, api.ExpansionPolicy{MaxDepth: 1, MaxNodes: 20, MaxEdges: 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasConflict(result.Conflicts, "helm_ownership_conflict") {
+		t.Fatalf("expected Helm ownership conflict, got %#v", result.Conflicts)
+	}
+}
+
+func helmTestEdge(from, to model.CanonicalID, kind model.EdgeKind, confidence float64) model.Edge {
+	return model.Edge{
+		From: from,
+		To:   to,
+		Kind: kind,
+		Provenance: model.EdgeProvenance{
+			SourceType: model.EdgeSourceTypeLabelEvidence,
+			State:      model.EdgeStateInferred,
+			Resolver:   "helm-labels/v1/strong",
+			Confidence: &confidence,
+		},
+	}
+}
+
 func diagnosticContainsKind(nodes []api.DiagnosticNode, kind api.NodeKind) bool {
 	for _, node := range nodes {
 		if node.Kind == kind {
@@ -353,6 +450,42 @@ func diagnosticContainsKind(nodes []api.DiagnosticNode, kind api.NodeKind) bool 
 func hasReason(reasons []string, want string) bool {
 	for _, reason := range reasons {
 		if reason == want {
+			return true
+		}
+	}
+	return false
+}
+
+func hasWarning(warnings []api.DiagnosticWarning, code string) bool {
+	for _, warning := range warnings {
+		if warning.Code == code {
+			return true
+		}
+	}
+	return false
+}
+
+func hasDegradedSource(sources []api.DegradedSource, source string) bool {
+	for _, degraded := range sources {
+		if degraded.Source == source {
+			return true
+		}
+	}
+	return false
+}
+
+func hasRankedEvidence(evidence []api.RankedEvidence, reason string) bool {
+	for _, item := range evidence {
+		if item.Reason == reason {
+			return true
+		}
+	}
+	return false
+}
+
+func hasConflict(conflicts []api.DiagnosticConflict, code string) bool {
+	for _, conflict := range conflicts {
+		if conflict.Code == code {
 			return true
 		}
 	}

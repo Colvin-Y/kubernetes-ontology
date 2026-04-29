@@ -374,6 +374,12 @@ kubernetes-ontology \
 - Use `managed_by_helm_release` and `installs_chart` edges as Helm/package
   provenance when present, but describe them as label-derived evidence unless
   future exact manifest evidence is explicitly available.
+- For "helm upgrade failed" requests, diagnose current cluster state even if
+  the user lacks Helm CLI output. Say clearly that template, values,
+  repository, client, hook, and `--atomic` rollback causes need user-provided
+  Helm stderr/status/history.
+- When `helm_cli_output_not_observed` or `helm_manifest_evidence_not_collected`
+  appears, include it in the answer before naming a root cause.
 - Index nodes by `canonicalId`; join edges by `from` and `to`.
 - Prefer edge/node attributes and provenance over explanation text for hard
   conclusions.
@@ -456,6 +462,22 @@ kubernetes-ontology \
   --namespace default \
   --name my-pod
 ```
+
+Diagnose a Helm release after a failed upgrade:
+
+```bash
+kubernetes-ontology \
+  --server "http://127.0.0.1:18080" \
+  --diagnose-helm-release \
+  --namespace default \
+  --name my-release
+```
+
+Use this when the user knows the release name but does not have the original
+Helm CLI output. Follow the returned `rankedEvidence`, `warnings`,
+`degradedSources`, and release-owned Workload/Pod nodes. If the response only
+shows Helm metadata and no rollout blocker, ask for `helm upgrade` stderr,
+`helm status`, or `helm history`.
 
 Expand one entity:
 
