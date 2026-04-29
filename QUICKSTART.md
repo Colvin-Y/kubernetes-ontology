@@ -551,6 +551,10 @@ fault-diagnosis workflow and downstream AI-agent consumption.
 It includes additive `partial`, `warnings`, `budgets`, `rankedEvidence`,
 `degradedSources`, and `conflicts` fields so agents can tell bounded evidence
 from complete cluster truth.
+When resources carry standard Helm metadata, diagnostic graphs can also include
+`HelmRelease` and `HelmChart` nodes connected by `managed_by_helm_release` and
+`installs_chart` edges. These edges are label evidence with confidence scores,
+not exact Helm manifest membership.
 
 Pod-centered diagnostic queries keep shared nodes bounded by default. For
 example, a pod's `ServiceAccount` is shown, but the traversal does not continue

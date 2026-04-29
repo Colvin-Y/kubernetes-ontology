@@ -52,6 +52,7 @@ func DefaultTerminalNodeKinds() []api.NodeKind {
 		api.NodeKindNode,
 		api.NodeKindRoleBinding,
 		api.NodeKindClusterRoleBinding,
+		api.NodeKindHelmChart,
 		api.NodeKindEvent,
 		api.NodeKindImage,
 		api.NodeKindOCIArtifactMetadata,
@@ -376,6 +377,8 @@ func (s *Service) shouldTraverseFrom(current model.CanonicalID, currentNode mode
 		return true
 	}
 	switch currentNode.Kind {
+	case model.NodeKindHelmRelease:
+		return edge.From == current && edge.Kind == model.EdgeKindInstallsChart
 	case model.NodeKindStorageClass:
 		return edge.From == current && edge.Kind == model.EdgeKindProvisionedByCSIDriver
 	case model.NodeKindPV:

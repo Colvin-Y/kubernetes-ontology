@@ -44,6 +44,7 @@ func (b *Builder) Build(snapshot k8s.Snapshot) ([]model.Node, []model.Edge) {
 	b.lastEvidence = nil
 	nodes := make([]model.Node, 0)
 	edges := make([]model.Edge, 0)
+	helmResources := make([]helmLabeledResource, 0)
 
 	podIDs := make(map[string]model.CanonicalID)
 	workloadIDs := make(map[string]model.CanonicalID)
@@ -66,6 +67,7 @@ func (b *Builder) Build(snapshot k8s.Snapshot) ([]model.Node, []model.Edge) {
 		workloadIDs[workload.Metadata.Namespace+"/"+workload.Metadata.Name] = w.ID
 		eventTargetKinds[workload.ControllerKind+"/"+workload.Metadata.UID] = w.ID
 		nodes = append(nodes, model.Node{ID: w.ID, Kind: model.NodeKindWorkload, SourceKind: workload.ControllerKind, Name: workload.Metadata.Name, Namespace: workload.Metadata.Namespace, Attributes: w.Attributes})
+		helmResources = appendHelmResource(helmResources, w.ID, model.NodeKindWorkload, workload.ControllerKind, workload.Metadata)
 	}
 
 	ownerResolver := owner.NewChainResolver(b.cluster, snapshot.Workloads, snapshot.ReplicaSets)
@@ -74,6 +76,7 @@ func (b *Builder) Build(snapshot k8s.Snapshot) ([]model.Node, []model.Edge) {
 		podIDs[pod.Metadata.Namespace+"/"+pod.Metadata.Name] = id
 		eventTargetKinds["Pod/"+pod.Metadata.UID] = id
 		nodes = append(nodes, model.Node{ID: id, Kind: model.NodeKindPod, SourceKind: "Pod", Name: pod.Metadata.Name, Namespace: pod.Metadata.Namespace, Attributes: map[string]any{"phase": pod.Phase, "reason": pod.Reason, "nodeName": pod.NodeName}})
+		helmResources = appendHelmResource(helmResources, id, model.NodeKindPod, "Pod", pod.Metadata)
 
 		for idx, image := range pod.ContainerImages {
 			imageRef := oci.ParseImageRef(image)
@@ -95,18 +98,21 @@ func (b *Builder) Build(snapshot k8s.Snapshot) ([]model.Node, []model.Edge) {
 		serviceIDs[service.Metadata.Namespace+"/"+service.Metadata.Name] = id
 		eventTargetKinds["Service/"+service.Metadata.UID] = id
 		nodes = append(nodes, model.Node{ID: id, Kind: model.NodeKindService, SourceKind: "Service", Name: service.Metadata.Name, Namespace: service.Metadata.Namespace, Attributes: map[string]any{"selector": service.Selector}})
+		helmResources = appendHelmResource(helmResources, id, model.NodeKindService, "Service", service.Metadata)
 	}
 
 	for _, configMap := range snapshot.ConfigMaps {
 		id := model.NewCanonicalID(model.ResourceRef{Cluster: b.cluster, Group: "core", Kind: "ConfigMap", Namespace: configMap.Metadata.Namespace, Name: configMap.Metadata.Name, UID: configMap.Metadata.UID})
 		configMapIDs[configMap.Metadata.Namespace+"/"+configMap.Metadata.Name] = id
 		nodes = append(nodes, model.Node{ID: id, Kind: model.NodeKindConfigMap, SourceKind: "ConfigMap", Name: configMap.Metadata.Name, Namespace: configMap.Metadata.Namespace})
+		helmResources = appendHelmResource(helmResources, id, model.NodeKindConfigMap, "ConfigMap", configMap.Metadata)
 	}
 
 	for _, secret := range snapshot.Secrets {
 		id := model.NewCanonicalID(model.ResourceRef{Cluster: b.cluster, Group: "core", Kind: "Secret", Namespace: secret.Metadata.Namespace, Name: secret.Metadata.Name, UID: secret.Metadata.UID})
 		secretIDs[secret.Metadata.Namespace+"/"+secret.Metadata.Name] = id
 		nodes = append(nodes, model.Node{ID: id, Kind: model.NodeKindSecret, SourceKind: "Secret", Name: secret.Metadata.Name, Namespace: secret.Metadata.Namespace})
+		helmResources = appendHelmResource(helmResources, id, model.NodeKindSecret, "Secret", secret.Metadata)
 	}
 
 	for _, sa := range snapshot.ServiceAccounts {
@@ -114,18 +120,21 @@ func (b *Builder) Build(snapshot k8s.Snapshot) ([]model.Node, []model.Edge) {
 		serviceAccountIDs[sa.Metadata.Namespace+"/"+sa.Metadata.Name] = id
 		eventTargetKinds["ServiceAccount/"+sa.Metadata.UID] = id
 		nodes = append(nodes, model.Node{ID: id, Kind: model.NodeKindServiceAccount, SourceKind: "ServiceAccount", Name: sa.Metadata.Name, Namespace: sa.Metadata.Namespace})
+		helmResources = appendHelmResource(helmResources, id, model.NodeKindServiceAccount, "ServiceAccount", sa.Metadata)
 	}
 
 	for _, roleBinding := range snapshot.RoleBindings {
 		id := roleBindingID(b.cluster, roleBinding)
 		roleBindingIDs[roleBinding.Metadata.Namespace+"/"+roleBinding.Metadata.Name] = id
 		nodes = append(nodes, roleBindingNode(b.cluster, roleBinding))
+		helmResources = appendHelmResource(helmResources, id, model.NodeKindRoleBinding, "RoleBinding", roleBinding.Metadata)
 	}
 
 	for _, clusterRoleBinding := range snapshot.ClusterRoleBindings {
 		id := clusterRoleBindingID(b.cluster, clusterRoleBinding)
 		clusterRoleBindingIDs[clusterRoleBinding.Metadata.Name] = id
 		nodes = append(nodes, clusterRoleBindingNode(b.cluster, clusterRoleBinding))
+		helmResources = appendHelmResource(helmResources, id, model.NodeKindClusterRoleBinding, "ClusterRoleBinding", clusterRoleBinding.Metadata)
 	}
 
 	for _, pvc := range snapshot.PVCs {
@@ -133,6 +142,7 @@ func (b *Builder) Build(snapshot k8s.Snapshot) ([]model.Node, []model.Edge) {
 		pvcIDs[pvc.Metadata.Namespace+"/"+pvc.Metadata.Name] = id
 		eventTargetKinds["PersistentVolumeClaim/"+pvc.Metadata.UID] = id
 		nodes = append(nodes, model.Node{ID: id, Kind: model.NodeKindPVC, SourceKind: "PersistentVolumeClaim", Name: pvc.Metadata.Name, Namespace: pvc.Metadata.Namespace, Attributes: map[string]any{"status": pvc.Status, "storageClassName": pvc.StorageClassName}})
+		helmResources = appendHelmResource(helmResources, id, model.NodeKindPVC, "PersistentVolumeClaim", pvc.Metadata)
 	}
 
 	for _, pv := range snapshot.PVs {
@@ -140,25 +150,33 @@ func (b *Builder) Build(snapshot k8s.Snapshot) ([]model.Node, []model.Edge) {
 		pvIDs[pv.Metadata.Name] = id
 		eventTargetKinds["PersistentVolume/"+pv.Metadata.UID] = id
 		nodes = append(nodes, model.Node{ID: id, Kind: model.NodeKindPV, SourceKind: "PersistentVolume", Name: pv.Metadata.Name, Attributes: map[string]any{"status": pv.Status, "storageClassName": pv.StorageClassName, "csi": pv.CSI}})
+		helmResources = appendHelmResource(helmResources, id, model.NodeKindPV, "PersistentVolume", pv.Metadata)
 	}
 
 	for _, storageClass := range snapshot.StorageClasses {
 		id := model.NewCanonicalID(model.ResourceRef{Cluster: b.cluster, Group: "storage.k8s.io", Kind: "StorageClass", Name: storageClass.Metadata.Name, UID: storageClass.Metadata.UID})
 		storageClassIDs[storageClass.Metadata.Name] = id
 		nodes = append(nodes, model.Node{ID: id, Kind: model.NodeKindStorageClass, SourceKind: "StorageClass", Name: storageClass.Metadata.Name, Attributes: map[string]any{"provisioner": storageClass.Provisioner, "reclaimPolicy": storageClass.ReclaimPolicy, "volumeBindingMode": storageClass.VolumeBindingMode}})
+		helmResources = appendHelmResource(helmResources, id, model.NodeKindStorageClass, "StorageClass", storageClass.Metadata)
 	}
 
 	for _, csiDriver := range snapshot.CSIDrivers {
 		id := model.NewCanonicalID(model.ResourceRef{Cluster: b.cluster, Group: "storage.k8s.io", Kind: "CSIDriver", Name: csiDriver.Metadata.Name, UID: csiDriver.Metadata.UID})
 		csiDriverIDs[csiDriver.Metadata.Name] = id
 		nodes = append(nodes, model.Node{ID: id, Kind: model.NodeKindCSIDriver, SourceKind: "CSIDriver", Name: csiDriver.Metadata.Name})
+		helmResources = appendHelmResource(helmResources, id, model.NodeKindCSIDriver, "CSIDriver", csiDriver.Metadata)
 	}
 
 	for _, webhook := range snapshot.WebhookConfigs {
 		id := model.NewCanonicalID(model.ResourceRef{Cluster: b.cluster, Group: "admissionregistration.k8s.io", Kind: "WebhookConfig", Name: webhook.Metadata.Name, UID: webhook.Metadata.UID})
 		webhookIDs[webhook.Metadata.Name] = id
 		nodes = append(nodes, model.Node{ID: id, Kind: model.NodeKindWebhookConfig, SourceKind: webhook.Kind, Name: webhook.Metadata.Name})
+		helmResources = appendHelmResource(helmResources, id, model.NodeKindWebhookConfig, webhook.Kind, webhook.Metadata)
 	}
+
+	helmNodes, helmEdges := inferHelmProvenance(b.cluster, helmResources)
+	nodes = append(nodes, helmNodes...)
+	edges = append(edges, helmEdges...)
 
 	for _, event := range snapshot.Events {
 		id := model.NewCanonicalID(model.ResourceRef{Cluster: b.cluster, Group: "core", Kind: "Event", Namespace: event.Metadata.Namespace, Name: event.Metadata.Name, UID: event.Metadata.UID})
@@ -372,6 +390,24 @@ func storageClassNameForPVC(pvc k8sresources.PVC, pvs []k8sresources.PV) string 
 		}
 	}
 	return ""
+}
+
+func appendHelmResource(resources []helmLabeledResource, id model.CanonicalID, kind model.NodeKind, sourceKind string, metadata k8sresources.Metadata) []helmLabeledResource {
+	if len(metadata.Labels) == 0 && len(metadata.Annotations) == 0 {
+		return resources
+	}
+	if metadata.Labels[helmInstanceLabel] == "" && metadata.Labels[helmChartLabel] == "" && metadata.Annotations[helmReleaseNameAnnotation] == "" {
+		return resources
+	}
+	return append(resources, helmLabeledResource{
+		ID:          id,
+		Kind:        kind,
+		SourceKind:  sourceKind,
+		Namespace:   metadata.Namespace,
+		Name:        metadata.Name,
+		Labels:      metadata.Labels,
+		Annotations: metadata.Annotations,
+	})
 }
 
 func csiAgentNodeNamesForPV(pv k8sresources.PV, snapshot k8s.Snapshot) []string {

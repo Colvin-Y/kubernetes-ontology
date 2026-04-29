@@ -31,6 +31,8 @@ const (
 	EdgeKindImplementedByCSINodeAgent  EdgeKind = "implemented_by_csi_node_agent"
 	EdgeKindServedByCSINodeAgent       EdgeKind = "served_by_csi_node_agent"
 	EdgeKindManagedByCSIController     EdgeKind = "managed_by_csi_controller"
+	EdgeKindManagedByHelmRelease       EdgeKind = "managed_by_helm_release"
+	EdgeKindInstallsChart              EdgeKind = "installs_chart"
 	EdgeKindRelatedTo                  EdgeKind = "related_to"
 )
 
@@ -43,6 +45,7 @@ const (
 	EdgeSourceTypeBindingResolution EdgeSourceType = "binding_resolution"
 	EdgeSourceTypeInferenceRule     EdgeSourceType = "inference_rule"
 	EdgeSourceTypeObserved          EdgeSourceType = "observed"
+	EdgeSourceTypeLabelEvidence     EdgeSourceType = "label_evidence"
 )
 
 type EdgeState string

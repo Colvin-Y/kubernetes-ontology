@@ -26,6 +26,8 @@
       --pv: #fb7185;
       --storageclass: #a78bfa;
       --csidriver: #38bdf8;
+      --helmrelease: #f97316;
+      --helmchart: #facc15;
       --event: #f87171;
       --node: #2dd4bf;
       --image: #94a3b8;
@@ -636,6 +638,8 @@
             <option>PV</option>
             <option>StorageClass</option>
             <option>CSIDriver</option>
+            <option>HelmRelease</option>
+            <option>HelmChart</option>
             <option>Event</option>
             <option>ConfigMap</option>
             <option>Secret</option>
@@ -680,6 +684,7 @@
             <option>PV</option>
             <option>StorageClass</option>
             <option>CSIDriver</option>
+            <option>HelmRelease</option>
           </select>
         </div>
         <div class="field">
@@ -852,6 +857,8 @@
       PV: css('--pv'),
       StorageClass: css('--storageclass'),
       CSIDriver: css('--csidriver'),
+      HelmRelease: css('--helmrelease'),
+      HelmChart: css('--helmchart'),
       Event: css('--event'),
       Node: css('--node'),
       Image: css('--image'),
@@ -877,6 +884,8 @@
       'implemented_by_csi_node_agent',
       'managed_by_csi_controller',
       'served_by_csi_node_agent',
+      'managed_by_helm_release',
+      'installs_chart',
       'reported_by_event',
       'affected_by_webhook'
     ]);
@@ -885,10 +894,10 @@
       core: ['Workload', 'Pod', 'Service', 'Node'],
       storage: ['PVC', 'PV', 'StorageClass', 'CSIDriver'],
       identity: ['ServiceAccount', 'RoleBinding', 'ClusterRoleBinding'],
-      evidence: ['Event', 'WebhookConfig', 'ConfigMap', 'Secret']
+      evidence: ['Event', 'WebhookConfig', 'ConfigMap', 'Secret', 'HelmRelease', 'HelmChart']
     };
 
-    const NAMESPACED_DIAGNOSTIC_KINDS = new Set(['Pod', 'Workload', 'PVC']);
+    const NAMESPACED_DIAGNOSTIC_KINDS = new Set(['Pod', 'Workload', 'PVC', 'HelmRelease']);
     const CLUSTER_SCOPED_DIAGNOSTIC_KINDS = new Set(['PV', 'StorageClass', 'CSIDriver']);
 
     const TOPOLOGY_FETCH_TIMEOUT_MS = 95000;
@@ -2492,9 +2501,11 @@
         PV: 7,
         StorageClass: 8,
         CSIDriver: 9,
-        Node: 10,
-        Image: 11,
-        Event: 12
+        HelmRelease: 10,
+        HelmChart: 11,
+        Node: 12,
+        Image: 13,
+        Event: 14
       };
       return order[kind] ?? 11;
     }
@@ -2574,6 +2585,8 @@
       if (kind === 'Pod') return 16;
       if (kind === 'Service') return 14;
       if (kind === 'PV' || kind === 'PVC' || kind === 'StorageClass' || kind === 'CSIDriver') return 14;
+      if (kind === 'HelmRelease') return 15;
+      if (kind === 'HelmChart') return 13;
       if (kind === 'Event') return 12;
       return 11;
     }

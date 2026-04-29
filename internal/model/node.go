@@ -19,6 +19,8 @@ const (
 	NodeKindPV                  NodeKind = "PV"
 	NodeKindStorageClass        NodeKind = "StorageClass"
 	NodeKindCSIDriver           NodeKind = "CSIDriver"
+	NodeKindHelmRelease         NodeKind = "HelmRelease"
+	NodeKindHelmChart           NodeKind = "HelmChart"
 	NodeKindEvent               NodeKind = "Event"
 	NodeKindImage               NodeKind = "Image"
 	NodeKindOCIArtifactMetadata NodeKind = "OCIArtifactMetadata"

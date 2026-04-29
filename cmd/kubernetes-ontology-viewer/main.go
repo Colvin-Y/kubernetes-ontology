@@ -200,7 +200,7 @@ func (h *handler) serveDiagnostic(w http.ResponseWriter, r *http.Request) {
 
 func isDiagnosticNamespacedKind(kind string) bool {
 	switch strings.ToLower(strings.TrimSpace(kind)) {
-	case "pod", "workload", "pvc", "persistentvolumeclaim":
+	case "pod", "workload", "pvc", "persistentvolumeclaim", "helmrelease":
 		return true
 	default:
 		return false
@@ -209,7 +209,7 @@ func isDiagnosticNamespacedKind(kind string) bool {
 
 func isDiagnosticClusterScopedKind(kind string) bool {
 	switch strings.ToLower(strings.TrimSpace(kind)) {
-	case "pv", "persistentvolume", "storageclass", "csidriver":
+	case "pv", "persistentvolume", "storageclass", "csidriver", "helmchart":
 		return true
 	default:
 		return false

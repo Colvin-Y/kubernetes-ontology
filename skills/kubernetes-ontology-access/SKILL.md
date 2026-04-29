@@ -371,6 +371,9 @@ kubernetes-ontology \
 - Treat the response as a bounded evidence graph, not complete cluster truth.
 - Check `partial`, `warnings`, `degradedSources`, `budgets`,
   `rankedEvidence`, and `conflicts` before forming a conclusion.
+- Use `managed_by_helm_release` and `installs_chart` edges as Helm/package
+  provenance when present, but describe them as label-derived evidence unless
+  future exact manifest evidence is explicitly available.
 - Index nodes by `canonicalId`; join edges by `from` and `to`.
 - Prefer edge/node attributes and provenance over explanation text for hard
   conclusions.
@@ -488,6 +491,8 @@ Common stable relation kinds include:
 - `bound_by_role_binding`
 - `mounts_pvc`
 - `bound_to_pv`
+- `managed_by_helm_release`
+- `installs_chart`
 - `reported_by_event`
 - `affected_by_webhook`
 - `managed_by_csi_controller`
