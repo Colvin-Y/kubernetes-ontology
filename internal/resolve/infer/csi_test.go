@@ -121,17 +121,34 @@ func TestCSIComponentRuleCorrelatesPVToComponents(t *testing.T) {
 		Namespace:  "storage-system",
 		Attributes: map[string]any{"nodeName": "node-a"},
 	}
+	otherAgent := model.Node{
+		ID:         model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "Pod", Namespace: "storage-system", Name: "disk-agent-node-b"}),
+		Kind:       model.NodeKindPod,
+		Name:       "disk-agent-node-b",
+		Namespace:  "storage-system",
+		Attributes: map[string]any{"nodeName": "node-b"},
+	}
 
-	result := correlator.Correlate(pv, "node-a", []model.Node{controller, agent})
+	result := correlator.Correlate(pv, "node-a", []model.Node{controller, agent, otherAgent})
 	kinds := map[model.EdgeKind]bool{}
+	servedByAgentEdges := 0
 	for _, edge := range result.Edges {
 		kinds[edge.Kind] = true
+		if edge.Kind == model.EdgeKindServedByCSINodeAgent {
+			servedByAgentEdges++
+			if edge.To != agent.ID {
+				t.Fatalf("expected PV node-agent edge to target same-node agent, got %s", edge.To)
+			}
+		}
 	}
 	if !kinds[model.EdgeKindManagedByCSIController] {
 		t.Fatal("expected PV controller edge")
 	}
 	if !kinds[model.EdgeKindServedByCSINodeAgent] {
 		t.Fatal("expected PV node-agent edge")
+	}
+	if servedByAgentEdges != 1 {
+		t.Fatalf("expected exactly one PV node-agent edge, got %d", servedByAgentEdges)
 	}
 }
 

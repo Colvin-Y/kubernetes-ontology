@@ -157,7 +157,10 @@ func (h *handler) serveDiagnostic(w http.ResponseWriter, r *http.Request) {
 	kind := first(q, "kind", "Pod")
 	namespace := first(q, "namespace", "")
 	name := first(q, "name", "")
-	if namespace == "" && (strings.EqualFold(kind, "Pod") || strings.EqualFold(kind, "Workload")) {
+	if isDiagnosticClusterScopedKind(kind) {
+		namespace = ""
+	}
+	if namespace == "" && isDiagnosticNamespacedKind(kind) {
 		writeJSON(w, map[string]string{"error": "namespace is required"}, http.StatusBadRequest)
 		return
 	}
@@ -187,6 +190,24 @@ func (h *handler) serveDiagnostic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, data, http.StatusOK)
+}
+
+func isDiagnosticNamespacedKind(kind string) bool {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "pod", "workload", "pvc", "persistentvolumeclaim":
+		return true
+	default:
+		return false
+	}
+}
+
+func isDiagnosticClusterScopedKind(kind string) bool {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "pv", "persistentvolume", "storageclass", "csidriver":
+		return true
+	default:
+		return false
+	}
 }
 
 func (h *handler) serveExpand(w http.ResponseWriter, r *http.Request) {

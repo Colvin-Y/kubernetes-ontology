@@ -146,6 +146,70 @@ func TestBuilderUsesConfiguredCSIComponentRule(t *testing.T) {
 	}
 }
 
+func TestBuilderScopesPVCSINodeAgentToConsumingPodNode(t *testing.T) {
+	builder := graph.NewBuilder("cluster-a")
+	builder.SetCSIComponentRules(openLocalCSIComponentRules())
+	snapshot := collectk8s.Snapshot{
+		Pods: []resources.Pod{
+			{
+				Metadata: resources.Metadata{UID: "pod-uid", Name: "app-0", Namespace: "default"},
+				NodeName: "node-a",
+				PVCRefs:  []string{"data"},
+			},
+			{
+				Metadata: resources.Metadata{UID: "csi-agent-a-uid", Name: "open-local-agent-node-a", Namespace: "kube-system"},
+				NodeName: "node-a",
+			},
+			{
+				Metadata: resources.Metadata{UID: "csi-agent-b-uid", Name: "open-local-agent-node-b", Namespace: "kube-system"},
+				NodeName: "node-b",
+			},
+		},
+		PVCs: []resources.PVC{{
+			Metadata:         resources.Metadata{UID: "pvc-uid", Name: "data", Namespace: "default"},
+			VolumeName:       "pv-data",
+			StorageClassName: "open-local",
+			Status:           "Bound",
+		}},
+		PVs: []resources.PV{{
+			Metadata:         resources.Metadata{UID: "pv-uid", Name: "pv-data"},
+			StorageClassName: "open-local",
+			Status:           "Bound",
+			CSI:              map[string]string{"driver": "local.csi.aliyun.com", "handle": "vol-123"},
+		}},
+		StorageClasses: []resources.StorageClass{{
+			Metadata:    resources.Metadata{UID: "sc-uid", Name: "open-local"},
+			Provisioner: "local.csi.aliyun.com",
+		}},
+	}
+
+	nodes, edges := builder.Build(snapshot)
+	agentA, ok := nodeIDByName(nodes, model.NodeKindPod, "kube-system", "open-local-agent-node-a")
+	if !ok {
+		t.Fatal("expected node-a CSI agent")
+	}
+	agentB, ok := nodeIDByName(nodes, model.NodeKindPod, "kube-system", "open-local-agent-node-b")
+	if !ok {
+		t.Fatal("expected node-b CSI agent")
+	}
+	servedByEdges := 0
+	for _, edge := range edges {
+		if edge.Kind != model.EdgeKindServedByCSINodeAgent {
+			continue
+		}
+		servedByEdges++
+		if edge.To == agentB {
+			t.Fatal("did not expect PV to be served by off-node CSI agent")
+		}
+		if edge.To != agentA {
+			t.Fatalf("expected PV to be served by node-a CSI agent, got %s", edge.To)
+		}
+	}
+	if servedByEdges != 1 {
+		t.Fatalf("expected one scoped PV node-agent edge, got %d", servedByEdges)
+	}
+}
+
 func storageTopologySnapshot() collectk8s.Snapshot {
 	return collectk8s.Snapshot{
 		Pods: []resources.Pod{
@@ -190,6 +254,15 @@ func containsNodeKind(nodes []model.Node, kind model.NodeKind) bool {
 		}
 	}
 	return false
+}
+
+func nodeIDByName(nodes []model.Node, kind model.NodeKind, namespace, name string) (model.CanonicalID, bool) {
+	for _, node := range nodes {
+		if node.Kind == kind && node.Namespace == namespace && node.Name == name {
+			return node.ID, true
+		}
+	}
+	return "", false
 }
 
 func openLocalCSIComponentRules() []infer.CSIComponentRule {
