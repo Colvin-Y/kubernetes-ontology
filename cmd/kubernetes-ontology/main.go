@@ -49,6 +49,7 @@ func main() {
 	var statusOnly bool
 	var diagnosePod bool
 	var diagnoseWorkload bool
+	var diagnoseHelmRelease bool
 	var observeDuration time.Duration
 	var pollInterval time.Duration
 	var streamMode string
@@ -92,6 +93,7 @@ func main() {
 	flag.BoolVar(&statusOnly, "status", false, "Alias for --status-only")
 	flag.BoolVar(&diagnosePod, "diagnose-pod", false, "Diagnose a Pod by --namespace and --name")
 	flag.BoolVar(&diagnoseWorkload, "diagnose-workload", false, "Diagnose a Workload by --namespace and --name")
+	flag.BoolVar(&diagnoseHelmRelease, "diagnose-helm-release", false, "Diagnose a Helm release by --namespace and --name")
 	flag.DurationVar(&observeDuration, "observe-duration", 0, "Keep observing the cluster for this duration before printing status or query output")
 	flag.DurationVar(&pollInterval, "poll-interval", 10*time.Second, "Polling interval used with --observe-duration")
 	flag.StringVar(&streamMode, "stream-mode", string(collectk8s.StreamModePolling), "Continuous update stream mode for --observe-duration: informer or polling")
@@ -140,8 +142,14 @@ func main() {
 	if terminalKindsDisable {
 		expandTerminalNodes = true
 	}
-	if diagnosePod && diagnoseWorkload {
-		err := fmt.Errorf("only one of --diagnose-pod or --diagnose-workload may be set")
+	diagnoseModeCount := 0
+	for _, enabled := range []bool{diagnosePod, diagnoseWorkload, diagnoseHelmRelease} {
+		if enabled {
+			diagnoseModeCount++
+		}
+	}
+	if diagnoseModeCount > 1 {
+		err := fmt.Errorf("only one of --diagnose-pod, --diagnose-workload, or --diagnose-helm-release may be set")
 		if machineErrors {
 			writeMachineError(os.Stderr, err)
 		} else {
@@ -154,6 +162,9 @@ func main() {
 	}
 	if diagnoseWorkload {
 		entryKind = "Workload"
+	}
+	if diagnoseHelmRelease {
+		entryKind = "HelmRelease"
 	}
 
 	if collapseNode {

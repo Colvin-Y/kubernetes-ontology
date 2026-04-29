@@ -112,6 +112,32 @@ Resources labeled with standard Helm metadata produce `HelmRelease` and
 `installs_chart` edges with `label_evidence` provenance and confidence scores.
 These are ownership hints from labels, not exact manifest membership.
 
+### Helm Upgrade Failure Triage
+
+When a user only says "helm upgrade failed" and does not have the Helm CLI
+output, `kubernetes-ontology` can still diagnose the current cluster state for
+that release:
+
+```bash
+kubernetes-ontology \
+  --server "http://127.0.0.1:18080" \
+  --diagnose-helm-release \
+  --namespace default \
+  --name my-release
+```
+
+The response expands the probable release-owned resources and chart evidence.
+It also marks the missing Helm-side evidence explicitly:
+
+- `helm_cli_output_not_observed`: template, values, repository, client, hook,
+  and `--atomic` rollback errors are outside current Kubernetes object state.
+- `helm_manifest_evidence_not_collected`: default Helm ownership is label and
+  annotation evidence, not exact release manifest membership.
+
+For rollout failures that reached the cluster, follow the release graph into
+the affected Workload or Pod diagnostic. For render/client failures, ask the
+user to paste the `helm upgrade` stderr or `helm status/history` output.
+
 ## Agent Onboarding
 
 This repository provides a Codex-style skill:
@@ -388,6 +414,16 @@ Diagnose a pod:
   --name my-pod \
   --max-nodes 200 \
   --max-edges 400
+```
+
+Diagnose a Helm release after a failed upgrade:
+
+```bash
+./bin/kubernetes-ontology \
+  --server "http://127.0.0.1:18080" \
+  --diagnose-helm-release \
+  --namespace default \
+  --name my-release
 ```
 
 Diagnostic responses include additive `partial`, `warnings`, `budgets`,

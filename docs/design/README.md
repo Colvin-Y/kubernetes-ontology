@@ -14,7 +14,9 @@ Recommended reading order:
 2. `current-state-and-next-steps.md` records the current implementation state.
 3. `open-source-mvp-plan.md` defines the open-source MVP boundary.
 4. `kubernetes-semantic-kernel-evolution.md` gives the long-term architecture.
-5. `continuous-runtime-technical-design.md` and
+5. `helm-upgrade-failure-user-story.md` standardizes the Helm upgrade failure
+   scenario where the user no longer has Helm CLI output.
+6. `continuous-runtime-technical-design.md` and
    `continuous-runtime-progress-snapshot.md` capture runtime design history.
 
 Detailed research notes are kept under `research/` so the design rationale and
