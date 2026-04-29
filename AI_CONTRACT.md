@@ -40,6 +40,8 @@ The response always includes:
 - `PV`
 - `StorageClass`
 - `CSIDriver`
+- `HelmRelease`
+- `HelmChart`
 
 ## Response shape
 
@@ -211,6 +213,15 @@ The following edge kinds are intended as stable phase-1 diagnostic semantics:
 - `affected_by_webhook`
 - `managed_by_csi_controller`
 - `served_by_csi_node_agent`
+
+### Helm / package provenance
+- `managed_by_helm_release`
+- `installs_chart`
+
+Helm/package edges are evidence, not a write path. Label-derived Helm
+relationships use `provenance.sourceType=label_evidence`,
+`provenance.state=inferred`, and a numeric confidence. Treat them as strong or
+weak ownership hints until exact Helm release manifest evidence is collected.
 
 AI-Agent code should assume these meanings are stable, even if the set of returned nodes varies by policy.
 

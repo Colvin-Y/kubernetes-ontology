@@ -191,6 +191,55 @@ func TestBuilderBuildsRBACTopology(t *testing.T) {
 	}
 }
 
+func TestBuilderInfersHelmReleaseAndChartFromLabels(t *testing.T) {
+	builder := NewBuilder("cluster-a")
+	helmLabels := map[string]string{
+		"app.kubernetes.io/managed-by": "Helm",
+		"app.kubernetes.io/instance":   "checkout",
+		"helm.sh/chart":                "checkout-api-1.2.3",
+	}
+	helmAnnotations := map[string]string{
+		"meta.helm.sh/release-name":      "checkout",
+		"meta.helm.sh/release-namespace": "payments",
+	}
+	snapshot := k8s.Snapshot{
+		Workloads: []resources.Workload{{
+			Metadata:       resources.Metadata{UID: "deploy-uid", Name: "checkout-api", Namespace: "payments", Labels: helmLabels, Annotations: helmAnnotations},
+			APIVersion:     "apps/v1",
+			ControllerKind: "Deployment",
+		}},
+		Services: []resources.Service{{
+			Metadata: resources.Metadata{UID: "svc-uid", Name: "checkout-api", Namespace: "payments", Labels: helmLabels, Annotations: helmAnnotations},
+			Selector: map[string]string{"app": "checkout"},
+		}},
+	}
+
+	nodes, edges := builder.Build(snapshot)
+	if !hasNode(nodes, model.NodeKindHelmRelease, "payments", "checkout") {
+		t.Fatal("expected HelmRelease node")
+	}
+	if !hasNode(nodes, model.NodeKindHelmChart, "", "checkout-api") {
+		t.Fatal("expected HelmChart node")
+	}
+	if countEdges(edges, model.EdgeKindManagedByHelmRelease) != 2 {
+		t.Fatalf("expected workload and service Helm release edges, got %d", countEdges(edges, model.EdgeKindManagedByHelmRelease))
+	}
+	if countEdges(edges, model.EdgeKindInstallsChart) != 1 {
+		t.Fatalf("expected deduplicated release-to-chart edge, got %d", countEdges(edges, model.EdgeKindInstallsChart))
+	}
+	for _, edge := range edges {
+		if edge.Kind != model.EdgeKindManagedByHelmRelease {
+			continue
+		}
+		if edge.Provenance.SourceType != model.EdgeSourceTypeLabelEvidence {
+			t.Fatalf("expected label evidence provenance, got %s", edge.Provenance.SourceType)
+		}
+		if edge.Provenance.Confidence == nil || *edge.Provenance.Confidence < 0.8 {
+			t.Fatalf("expected strong confidence, got %#v", edge.Provenance.Confidence)
+		}
+	}
+}
+
 func hasWorkloadNode(nodes []model.Node, sourceKind, name string) bool {
 	for _, node := range nodes {
 		if node.Kind == model.NodeKindWorkload && node.SourceKind == sourceKind && node.Name == name {

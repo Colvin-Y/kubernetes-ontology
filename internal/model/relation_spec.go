@@ -8,6 +8,7 @@ const (
 	OntologyClassNamespacedResource   = "NamespacedResource"
 	OntologyClassStorageClassConsumer = "StorageClassConsumer"
 	OntologyClassRBACBinding          = "RBACBinding"
+	OntologyClassPackage              = "Package"
 )
 
 type RelationSpec struct {
@@ -301,6 +302,24 @@ var relationSpecs = []RelationSpec{
 		DefaultSourceType: EdgeSourceTypeInferenceRule,
 		DefaultState:      EdgeStateInferred,
 		ResolverHints:     []string{"csi-component-rule/<driver>/pv-controller/v1"},
+	},
+	{
+		Kind:              EdgeKindManagedByHelmRelease,
+		Comment:           "Relates a Kubernetes resource to a Helm release inferred from standard Helm and Kubernetes app labels.",
+		Domain:            OntologyClassKubernetesResource,
+		Range:             string(NodeKindHelmRelease),
+		DefaultSourceType: EdgeSourceTypeLabelEvidence,
+		DefaultState:      EdgeStateInferred,
+		ResolverHints:     []string{"helm-labels/v1"},
+	},
+	{
+		Kind:              EdgeKindInstallsChart,
+		Comment:           "Relates a Helm release to the chart label observed on resources in that release.",
+		Domain:            string(NodeKindHelmRelease),
+		Range:             string(NodeKindHelmChart),
+		DefaultSourceType: EdgeSourceTypeLabelEvidence,
+		DefaultState:      EdgeStateInferred,
+		ResolverHints:     []string{"helm-labels/v1"},
 	},
 	{
 		Kind:              EdgeKindRelatedTo,

@@ -240,6 +240,8 @@ func normalizeNodeKind(raw string) (api.NodeKind, bool) {
 		api.NodeKindPV,
 		api.NodeKindStorageClass,
 		api.NodeKindCSIDriver,
+		api.NodeKindHelmRelease,
+		api.NodeKindHelmChart,
 		api.NodeKindEvent,
 		api.NodeKindImage,
 		api.NodeKindOCIArtifactMetadata,
@@ -255,7 +257,7 @@ func normalizeNodeKind(raw string) (api.NodeKind, bool) {
 
 func isNamespacedDiagnosticKind(kind api.NodeKind) bool {
 	switch kind {
-	case api.NodeKindPV, api.NodeKindStorageClass, api.NodeKindCSIDriver, api.NodeKindCluster, api.NodeKindNode, api.NodeKindClusterRoleBinding, api.NodeKindWebhookConfig, api.NodeKindImage, api.NodeKindOCIArtifactMetadata:
+	case api.NodeKindPV, api.NodeKindStorageClass, api.NodeKindCSIDriver, api.NodeKindHelmChart, api.NodeKindCluster, api.NodeKindNode, api.NodeKindClusterRoleBinding, api.NodeKindWebhookConfig, api.NodeKindImage, api.NodeKindOCIArtifactMetadata:
 		return false
 	default:
 		return true

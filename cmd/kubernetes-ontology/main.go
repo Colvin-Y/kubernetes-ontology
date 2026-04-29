@@ -73,7 +73,7 @@ func main() {
 	flag.StringVar(&configPath, "config", "", "Path to YAML config file")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to kubeconfig file")
 	flag.StringVar(&cluster, "cluster", "default-cluster", "Logical cluster name for canonical IDs")
-	flag.StringVar(&entryKind, "entry-kind", "", "Diagnostic entry kind: Pod, Workload, PVC, PV, StorageClass, CSIDriver, or another ontology node kind")
+	flag.StringVar(&entryKind, "entry-kind", "", "Diagnostic entry kind: Pod, Workload, PVC, PV, StorageClass, CSIDriver, HelmRelease, HelmChart, or another ontology node kind")
 	flag.StringVar(&namespace, "namespace", "", "Namespace of diagnostic entry")
 	flag.StringVar(&name, "name", "", "Name of diagnostic entry")
 	flag.StringVar(&contextNamespaces, "context-namespaces", "", "Comma-separated namespaces to collect as ontology context. Empty means all namespaces.")

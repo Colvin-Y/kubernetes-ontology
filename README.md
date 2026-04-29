@@ -39,8 +39,8 @@ webhooks, CSI drivers, and controller pods.
 
 This project turns those object reads into a graph:
 
-- pods, workloads, services, nodes, storage, RBAC, events, images, and webhooks
-  become typed entities
+- pods, workloads, services, nodes, storage, RBAC, events, images, webhooks,
+  Helm releases, and Helm charts become typed entities
 - Kubernetes references and inferred dependencies become typed relations
 - diagnostic queries return a focused subgraph instead of a flat object dump
 - AI agents can ask stable read-only questions without crawling the cluster
@@ -89,6 +89,7 @@ The graph can recover and correlate:
 - ServiceAccount to RoleBinding and ClusterRoleBinding evidence
 - Kubernetes Event and admission webhook evidence
 - PV CSI metadata
+- Helm release and chart provenance from standard Helm labels and annotations
 
 ### CSI Correlation
 
@@ -103,6 +104,13 @@ Recovered evidence can include relations such as:
 - `implemented_by_csi_node_agent`
 - `managed_by_csi_controller`
 - `served_by_csi_node_agent`
+
+### Helm Provenance
+
+Resources labeled with standard Helm metadata produce `HelmRelease` and
+`HelmChart` nodes. The graph adds `managed_by_helm_release` and
+`installs_chart` edges with `label_evidence` provenance and confidence scores.
+These are ownership hints from labels, not exact manifest membership.
 
 ## Agent Onboarding
 
@@ -544,7 +552,7 @@ archives, so marketplace pages should link to the live repository path:
   it is not a full permission reasoning engine.
 - Evidence ranking currently starts with returned Event evidence and will grow
   into richer signal ranking over time.
-- RDF/OWL materialization is not implemented.
+- Runtime RDF/OWL materialization is not implemented.
 
 ## Roadmap
 
