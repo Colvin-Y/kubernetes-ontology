@@ -2,6 +2,8 @@ package reconcile
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	collectk8s "github.com/Colvin-Y/kubernetes-ontology/internal/collect/k8s"
 	"github.com/Colvin-Y/kubernetes-ontology/internal/collect/k8s/resources"
@@ -235,7 +237,7 @@ func (r *StorageReconciler) rebuildStorageEdges(snapshot collectk8s.Snapshot, cu
 		}
 		pvNode := pvNode(r.cluster, pv)
 		pvNode.ID = pvID
-		correlation := correlator.Correlate(pvNode, pv.CSI["nodeAffinity"], infraPods)
+		correlation := infer.CorrelatePVToCSIComponents(correlator, pvNode, csiAgentNodeNamesForPV(pv, snapshot), infraPods)
 		for _, edge := range correlation.Edges {
 			if err := r.kernel.UpsertEdge(edge); err != nil {
 				return upserted, err
@@ -407,6 +409,44 @@ func storageClassNameForPVC(pvc resources.PVC, pvs []resources.PV) string {
 		}
 	}
 	return ""
+}
+
+func csiAgentNodeNamesForPV(pv resources.PV, snapshot collectk8s.Snapshot) []string {
+	seen := make(map[string]struct{})
+	addNode := func(nodeName string) {
+		nodeName = strings.TrimSpace(nodeName)
+		if nodeName == "" {
+			return
+		}
+		seen[nodeName] = struct{}{}
+	}
+	addNode(pv.CSI["nodeAffinity"])
+	for _, pvc := range snapshot.PVCs {
+		if pvc.VolumeName != pv.Metadata.Name {
+			continue
+		}
+		for _, pod := range snapshot.Pods {
+			if pod.Metadata.Namespace != pvc.Metadata.Namespace || pod.NodeName == "" || !podReferencesPVC(pod, pvc.Metadata.Name) {
+				continue
+			}
+			addNode(pod.NodeName)
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for nodeName := range seen {
+		out = append(out, nodeName)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func podReferencesPVC(pod resources.Pod, pvcName string) bool {
+	for _, ref := range pod.PVCRefs {
+		if ref == pvcName {
+			return true
+		}
+	}
+	return false
 }
 
 func storageInfraPods(cluster string, snapshot collectk8s.Snapshot) []model.Node {

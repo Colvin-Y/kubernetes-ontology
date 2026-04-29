@@ -286,7 +286,7 @@ var relationSpecs = []RelationSpec{
 	},
 	{
 		Kind:              EdgeKindServedByCSINodeAgent,
-		Comment:           "Relates a PersistentVolume to the CSI node-agent Pod on its affinity node.",
+		Comment:           "Relates a PersistentVolume to a CSI node-agent Pod on a PV affinity node or consuming Pod node.",
 		Domain:            string(NodeKindPV),
 		Range:             string(NodeKindPod),
 		DefaultSourceType: EdgeSourceTypeInferenceRule,

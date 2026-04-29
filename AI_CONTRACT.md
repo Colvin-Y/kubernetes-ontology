@@ -251,7 +251,7 @@ It should not be used as the only signal for graph facts already present in node
 - this pod mounts PVC X, which is bound to PV Y
 - this PV uses CSI driver X
 - this PV is managed by configured CSI controller components
-- no configured CSI node agent was found for the PV affinity node in the current observed graph slice
+- no configured CSI node agent was found for the PV affinity or consuming Pod node in the current observed graph slice
 - this workload owns the pod through the owner chain
 
 ### Unsafe conclusions

@@ -68,6 +68,51 @@ class VisualizeServerTest(unittest.TestCase):
             viewer.close()
             upstream.close()
 
+    def test_diagnostic_allows_cluster_scoped_kind_without_namespace(self):
+        hits = []
+        upstream = running_server(make_upstream(hits=hits))
+        viewer = running_server(visualize_server.Handler)
+        try:
+            url = viewer.url + "/diagnostic?" + urllib.parse.urlencode({
+                "server": upstream.url,
+                "kind": "PV",
+                "name": "pv-data",
+            })
+            body = urllib.request.urlopen(url).read()
+            self.assertTrue(json.loads(body))
+            self.assertEqual(len(hits), 1)
+            parsed = urllib.parse.urlparse(hits[0])
+            self.assertEqual(parsed.path, "/diagnostic")
+            qs = urllib.parse.parse_qs(parsed.query)
+            self.assertEqual(qs["kind"][0], "PV")
+            self.assertEqual(qs["name"][0], "pv-data")
+            self.assertNotIn("namespace", qs)
+        finally:
+            viewer.close()
+            upstream.close()
+
+    def test_diagnostic_omits_namespace_for_cluster_scoped_kind(self):
+        hits = []
+        upstream = running_server(make_upstream(hits=hits))
+        viewer = running_server(visualize_server.Handler)
+        try:
+            url = viewer.url + "/diagnostic?" + urllib.parse.urlencode({
+                "server": upstream.url,
+                "kind": "StorageClass",
+                "namespace": "default",
+                "name": "fast",
+            })
+            body = urllib.request.urlopen(url).read()
+            self.assertTrue(json.loads(body))
+            parsed = urllib.parse.urlparse(hits[0])
+            qs = urllib.parse.parse_qs(parsed.query)
+            self.assertEqual(qs["kind"][0], "StorageClass")
+            self.assertEqual(qs["name"][0], "fast")
+            self.assertNotIn("namespace", qs)
+        finally:
+            viewer.close()
+            upstream.close()
+
     def test_diagnostic_timeout_returns_504(self):
         previous = visualize_server.UPSTREAM_TIMEOUT_SECONDS
         visualize_server.UPSTREAM_TIMEOUT_SECONDS = 0.05

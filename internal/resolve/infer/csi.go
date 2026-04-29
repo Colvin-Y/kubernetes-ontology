@@ -2,6 +2,7 @@ package infer
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/Colvin-Y/kubernetes-ontology/internal/model"
@@ -106,6 +107,35 @@ func NewCSIComponentRegistry(rules []CSIComponentRule) *Registry {
 	return NewRegistry(correlators...)
 }
 
+func CorrelatePVToCSIComponents(correlator CSICorrelator, pv model.Node, nodeNames []string, infraPods []model.Node) CorrelationResult {
+	normalizedNodeNames := normalizeNodeNames(nodeNames)
+	if len(normalizedNodeNames) == 0 {
+		return correlator.Correlate(pv, "", infraPods)
+	}
+
+	result := CorrelationResult{Edges: make([]model.Edge, 0), Evidence: make([]string, 0)}
+	seenEdges := make(map[string]struct{})
+	seenEvidence := make(map[string]struct{})
+	for _, nodeName := range normalizedNodeNames {
+		correlation := correlator.Correlate(pv, nodeName, infraPods)
+		for _, edge := range correlation.Edges {
+			if _, seen := seenEdges[edge.Key()]; seen {
+				continue
+			}
+			result.Edges = append(result.Edges, edge)
+			seenEdges[edge.Key()] = struct{}{}
+		}
+		for _, evidence := range correlation.Evidence {
+			if _, seen := seenEvidence[evidence]; seen {
+				continue
+			}
+			result.Evidence = append(result.Evidence, evidence)
+			seenEvidence[evidence] = struct{}{}
+		}
+	}
+	return result
+}
+
 func IsCSIProvisioner(provisioner string, observedCSIDriver bool, rules []CSIComponentRule) bool {
 	if provisioner == "" {
 		return false
@@ -187,9 +217,9 @@ func (c componentRuleCorrelator) Correlate(pv model.Node, affinityNodeName strin
 	}
 	if len(c.rule.NodeAgentPodPrefixes) > 0 {
 		if affinityNodeName == "" {
-			result.Evidence = append(result.Evidence, fmt.Sprintf("csi: PV affinity node missing for driver %s", c.rule.Driver))
+			result.Evidence = append(result.Evidence, fmt.Sprintf("csi: PV affinity or consuming pod node missing for driver %s", c.rule.Driver))
 		} else if !foundAgent {
-			result.Evidence = append(result.Evidence, fmt.Sprintf("csi: no node agent found for driver %s on PV affinity node %s", c.rule.Driver, affinityNodeName))
+			result.Evidence = append(result.Evidence, fmt.Sprintf("csi: no node agent found for driver %s on node %s", c.rule.Driver, affinityNodeName))
 		}
 	}
 	return result
@@ -215,6 +245,23 @@ func hasAnyPrefix(value string, prefixes []string) bool {
 		}
 	}
 	return false
+}
+
+func normalizeNodeNames(nodeNames []string) []string {
+	seen := make(map[string]struct{}, len(nodeNames))
+	for _, nodeName := range nodeNames {
+		nodeName = strings.TrimSpace(nodeName)
+		if nodeName == "" {
+			continue
+		}
+		seen[nodeName] = struct{}{}
+	}
+	out := make([]string, 0, len(seen))
+	for nodeName := range seen {
+		out = append(out, nodeName)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func looksLikeCSIProvisioner(provisioner string) bool {

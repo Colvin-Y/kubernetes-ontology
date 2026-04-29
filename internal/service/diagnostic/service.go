@@ -100,7 +100,7 @@ func (s *Service) GetDiagnosticSubgraphContext(ctx context.Context, entry api.En
 				if err := ctx.Err(); err != nil {
 					return api.DiagnosticSubgraph{}, err
 				}
-				if !shouldTraverseFrom(current, currentNode, currentOK, edge, depth, policy) {
+				if !s.shouldTraverseFrom(current, currentNode, currentOK, rootNode, edge, depth, policy) {
 					continue
 				}
 				if _, seen := seenEdges[edge.Key()]; !seen {
@@ -236,7 +236,7 @@ func shouldTraverse(kind model.EdgeKind, depth int, policy api.ExpansionPolicy) 
 	return depth < policy.MaxDepth
 }
 
-func shouldTraverseFrom(current model.CanonicalID, currentNode model.Node, currentOK bool, edge model.Edge, depth int, policy api.ExpansionPolicy) bool {
+func (s *Service) shouldTraverseFrom(current model.CanonicalID, currentNode model.Node, currentOK bool, rootNode model.Node, edge model.Edge, depth int, policy api.ExpansionPolicy) bool {
 	if !shouldTraverse(edge.Kind, depth, policy) {
 		return false
 	}
@@ -246,10 +246,41 @@ func shouldTraverseFrom(current model.CanonicalID, currentNode model.Node, curre
 	switch currentNode.Kind {
 	case model.NodeKindStorageClass:
 		return edge.From == current && edge.Kind == model.EdgeKindProvisionedByCSIDriver
+	case model.NodeKindPV:
+		if edge.Kind == model.EdgeKindServedByCSINodeAgent && rootNode.Kind == model.NodeKindPod {
+			return edge.From == current && s.csiAgentMatchesRootPodNode(edge.To, rootNode)
+		}
+		return true
 	case model.NodeKindCSIDriver:
-		return edge.From == current &&
-			(edge.Kind == model.EdgeKindImplementedByCSIController ||
-				edge.Kind == model.EdgeKindImplementedByCSINodeAgent)
+		if edge.From != current {
+			return false
+		}
+		if edge.Kind == model.EdgeKindImplementedByCSIController {
+			return true
+		}
+		return edge.Kind == model.EdgeKindImplementedByCSINodeAgent && shouldTraverseDriverNodeAgents(rootNode.Kind)
+	default:
+		return true
+	}
+}
+
+func (s *Service) csiAgentMatchesRootPodNode(agentID model.CanonicalID, rootNode model.Node) bool {
+	rootNodeName, _ := rootNode.Attributes["nodeName"].(string)
+	if rootNodeName == "" || s.kernel == nil {
+		return false
+	}
+	agent, ok := s.kernel.GetNode(agentID)
+	if !ok {
+		return false
+	}
+	agentNodeName, _ := agent.Attributes["nodeName"].(string)
+	return agentNodeName == rootNodeName
+}
+
+func shouldTraverseDriverNodeAgents(rootKind model.NodeKind) bool {
+	switch rootKind {
+	case model.NodeKindPod, model.NodeKindWorkload, model.NodeKindPVC, model.NodeKindPV:
+		return false
 	default:
 		return true
 	}

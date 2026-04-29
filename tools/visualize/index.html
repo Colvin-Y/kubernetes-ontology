@@ -873,6 +873,9 @@
       evidence: ['Event', 'WebhookConfig', 'ConfigMap', 'Secret']
     };
 
+    const NAMESPACED_DIAGNOSTIC_KINDS = new Set(['Pod', 'Workload', 'PVC']);
+    const CLUSTER_SCOPED_DIAGNOSTIC_KINDS = new Set(['PV', 'StorageClass', 'CSIDriver']);
+
     const TOPOLOGY_FETCH_TIMEOUT_MS = 95000;
     const DIAGNOSTIC_FETCH_TIMEOUT_MS = 35000;
 
@@ -1006,6 +1009,7 @@
       if (params.get('storageMaxDepth')) state.diagnosticStorageMaxDepth = params.get('storageMaxDepth');
       if (params.get('terminalKinds')) el.diagnosticTerminalKinds.value = params.get('terminalKinds');
       if (params.get('expandTerminalNodes')) el.expandTerminalNodes.checked = params.get('expandTerminalNodes') === 'true';
+      syncDiagnosticNamespaceControl();
       if (params.get('file')) loadFromPath(params.get('file')).catch(showLoadError);
       if (params.get('diagnostic') === '1') loadDiagnosticFromServer().catch(showLoadError);
     }
@@ -1014,6 +1018,7 @@
       el.loadTopologyBtn.addEventListener('click', () => loadTopology().catch(showLoadError));
       el.refreshBtn.addEventListener('click', () => refreshLast().catch(showLoadError));
       el.loadDiagnosticBtn.addEventListener('click', () => loadDiagnosticFromServer().catch(showLoadError));
+      el.diagnosticKind.addEventListener('change', syncDiagnosticNamespaceControl);
       el.expandSelectedBtn.addEventListener('click', () => expandSelectedNode().catch(showLoadError));
       el.collapseSelectedBtn.addEventListener('click', collapseSelectedNode);
       el.statePrimaryBtn.addEventListener('click', () => refreshLast().catch(showLoadError));
@@ -1086,9 +1091,9 @@
       const server = el.serverUrl.value.trim();
       if (!server) throw new Error('Ontology server URL is required.');
       const kind = el.diagnosticKind.value;
-      const namespace = el.diagnosticNamespace.value.trim();
+      const namespace = isClusterScopedDiagnosticKind(kind) ? '' : el.diagnosticNamespace.value.trim();
       const name = el.diagnosticName.value.trim();
-      if (!namespace && ['Pod', 'Workload', 'PVC'].includes(kind)) throw new Error('Namespace is required to load this diagnostic graph.');
+      if (!namespace && isNamespacedDiagnosticKind(kind)) throw new Error('Namespace is required to load this diagnostic graph.');
       if (!name) throw new Error('Name is required to load a diagnostic graph.');
       const params = new URLSearchParams({
         server,
@@ -1219,6 +1224,22 @@
       const normalized = String(value || '').toLowerCase();
       const option = Array.from(el.diagnosticKind.options).find((item) => item.value.toLowerCase() === normalized);
       if (option) el.diagnosticKind.value = option.value;
+      syncDiagnosticNamespaceControl();
+    }
+
+    function syncDiagnosticNamespaceControl() {
+      const clusterScoped = isClusterScopedDiagnosticKind(el.diagnosticKind.value);
+      el.diagnosticNamespace.disabled = clusterScoped;
+      el.diagnosticNamespace.placeholder = clusterScoped ? 'cluster-scoped' : 'default';
+      if (clusterScoped) el.diagnosticNamespace.value = '';
+    }
+
+    function isNamespacedDiagnosticKind(kind) {
+      return NAMESPACED_DIAGNOSTIC_KINDS.has(kind);
+    }
+
+    function isClusterScopedDiagnosticKind(kind) {
+      return CLUSTER_SCOPED_DIAGNOSTIC_KINDS.has(kind);
     }
 
     function scheduleRefresh() {

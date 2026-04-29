@@ -422,7 +422,7 @@
   </owl:ObjectProperty>
   <owl:ObjectProperty rdf:about="#served_by_csi_node_agent">
     <rdfs:label>served_by_csi_node_agent</rdfs:label>
-    <rdfs:comment>Relates a PersistentVolume to the CSI node-agent Pod on its affinity node.</rdfs:comment>
+    <rdfs:comment>Relates a PersistentVolume to a CSI node-agent Pod on a PV affinity node or consuming Pod node.</rdfs:comment>
     <ko:edgeKind>served_by_csi_node_agent</ko:edgeKind>
     <rdfs:domain rdf:resource="#PV"/>
     <rdfs:range rdf:resource="#Pod"/>

@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parents[2]
 VIEWER = ROOT / "tools" / "visualize" / "index.html"
 VERSION = str(int(VIEWER.stat().st_mtime))
 DEFAULT_ONTOLOGY_SERVER = os.environ.get("ONTOLOGY_SERVER", "http://127.0.0.1:18080")
+NAMESPACED_DIAGNOSTIC_KINDS = {"pod", "workload", "pvc"}
+CLUSTER_SCOPED_DIAGNOSTIC_KINDS = {"pv", "storageclass", "csidriver"}
 
 
 def float_env(name, default):
@@ -88,34 +90,36 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path == "/diagnostic":
             qs = urllib.parse.parse_qs(parsed.query)
             server = first(qs, "server", DEFAULT_ONTOLOGY_SERVER)
-            kind = first(qs, "kind", "Pod").lower()
+            kind = first(qs, "kind", "Pod")
+            kind_key = kind.lower()
             namespace = first(qs, "namespace")
             name = first(qs, "name")
             max_depth = first(qs, "maxDepth", "2")
             storage_max_depth = first(qs, "storageMaxDepth", "5")
             terminal_kinds = first(qs, "terminalKinds")
             expand_terminal_nodes = first(qs, "expandTerminalNodes")
-            if kind not in ("pod", "workload"):
-                self._json({"error": "kind must be pod or workload"}, 400)
-                return
+            if kind_key in CLUSTER_SCOPED_DIAGNOSTIC_KINDS:
+                namespace = ""
             if not name:
                 self._json({"error": "name is required"}, 400)
                 return
-            if not namespace:
+            if not namespace and kind_key in NAMESPACED_DIAGNOSTIC_KINDS:
                 self._json({"error": "namespace is required"}, 400)
                 return
             params = {
-                "namespace": namespace,
+                "kind": kind,
                 "name": name,
                 "maxDepth": max_depth,
                 "storageMaxDepth": storage_max_depth,
             }
+            if namespace:
+                params["namespace"] = namespace
             if terminal_kinds:
                 params["terminalKinds"] = terminal_kinds
             if expand_terminal_nodes:
                 params["expandTerminalNodes"] = expand_terminal_nodes
             try:
-                data = fetch_json(server, f"/diagnostic/{kind}?" + urllib.parse.urlencode(params))
+                data = fetch_json(server, "/diagnostic?" + urllib.parse.urlencode(params))
             except Exception as e:
                 self._upstream_error(e)
                 return

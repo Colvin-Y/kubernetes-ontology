@@ -156,6 +156,61 @@ func TestGetDiagnosticSubgraphTraversesStorageClassAndCSIDriver(t *testing.T) {
 	}
 }
 
+func TestGetDiagnosticSubgraphScopesCSINodeAgentsForPodStoragePath(t *testing.T) {
+	store := memorystore.NewStore()
+	kernel := graph.NewKernel(store, store)
+	service := NewService(kernel)
+
+	pod := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "Pod", Namespace: "default", Name: "app-0", UID: "p1"}), Kind: model.NodeKindPod, Name: "app-0", Namespace: "default", Attributes: map[string]any{"nodeName": "node-a"}}
+	pvc := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "PVC", Namespace: "default", Name: "data", UID: "pvc1"}), Kind: model.NodeKindPVC, Name: "data", Namespace: "default"}
+	pv := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "PV", Name: "pv-data", UID: "pv1"}), Kind: model.NodeKindPV, Name: "pv-data"}
+	storageClass := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "storage.k8s.io", Kind: "StorageClass", Name: "open-local", UID: "sc1"}), Kind: model.NodeKindStorageClass, Name: "open-local"}
+	driver := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "storage.k8s.io", Kind: "CSIDriver", Name: "local.csi.aliyun.com", UID: "driver1"}), Kind: model.NodeKindCSIDriver, Name: "local.csi.aliyun.com"}
+	controller := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "Pod", Namespace: "kube-system", Name: "open-local-controller-0", UID: "c1"}), Kind: model.NodeKindPod, Name: "open-local-controller-0", Namespace: "kube-system"}
+	sameNodeAgent := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "Pod", Namespace: "kube-system", Name: "open-local-agent-node-a", UID: "a1"}), Kind: model.NodeKindPod, Name: "open-local-agent-node-a", Namespace: "kube-system", Attributes: map[string]any{"nodeName": "node-a"}}
+	otherNodeAgent := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "Pod", Namespace: "kube-system", Name: "open-local-agent-node-b", UID: "a2"}), Kind: model.NodeKindPod, Name: "open-local-agent-node-b", Namespace: "kube-system", Attributes: map[string]any{"nodeName": "node-b"}}
+
+	for _, node := range []model.Node{pod, pvc, pv, storageClass, driver, controller, sameNodeAgent, otherNodeAgent} {
+		if err := kernel.UpsertNode(node); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, edge := range []model.Edge{
+		model.NewEdge(pod.ID, pvc.ID, model.EdgeKindMountsPVC),
+		model.NewEdge(pvc.ID, pv.ID, model.EdgeKindBoundToPV),
+		model.NewEdge(pvc.ID, storageClass.ID, model.EdgeKindUsesStorageClass),
+		model.NewEdge(pv.ID, storageClass.ID, model.EdgeKindUsesStorageClass),
+		model.NewEdge(storageClass.ID, driver.ID, model.EdgeKindProvisionedByCSIDriver),
+		model.NewEdge(pv.ID, sameNodeAgent.ID, model.EdgeKindServedByCSINodeAgent),
+		model.NewEdge(pv.ID, otherNodeAgent.ID, model.EdgeKindServedByCSINodeAgent),
+		model.NewEdge(driver.ID, controller.ID, model.EdgeKindImplementedByCSIController),
+		model.NewEdge(driver.ID, sameNodeAgent.ID, model.EdgeKindImplementedByCSINodeAgent),
+		model.NewEdge(driver.ID, otherNodeAgent.ID, model.EdgeKindImplementedByCSINodeAgent),
+	} {
+		if err := kernel.UpsertEdge(edge); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	result, err := service.GetDiagnosticSubgraph(api.EntryRef{Kind: api.NodeKindPod, CanonicalID: pod.ID.String()}, api.ExpansionPolicy{
+		MaxDepth:        1,
+		StorageMaxDepth: 5,
+		IncludeStorage:  true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !diagnosticContainsNode(result.Nodes, "open-local-agent-node-a") {
+		t.Fatalf("expected pod storage traversal to include same-node CSI agent, got %#v", result.Nodes)
+	}
+	if diagnosticContainsNode(result.Nodes, "open-local-agent-node-b") {
+		t.Fatalf("expected pod storage traversal to exclude off-node CSI agent, got %#v", result.Nodes)
+	}
+	if !diagnosticContainsNode(result.Nodes, "open-local-controller-0") {
+		t.Fatalf("expected pod storage traversal to include CSI controller, got %#v", result.Nodes)
+	}
+}
+
 func diagnosticContainsKind(nodes []api.DiagnosticNode, kind api.NodeKind) bool {
 	for _, node := range nodes {
 		if node.Kind == kind {
