@@ -223,6 +223,16 @@ func (h *handler) diagnostic(w http.ResponseWriter, r *http.Request, kind string
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	maxNodes, err := parseOptionalDiagnosticLimit(r.URL.Query().Get("maxNodes"), "maxNodes", query.MaxDiagnosticNodes)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	maxEdges, err := parseOptionalDiagnosticLimit(r.URL.Query().Get("maxEdges"), "maxEdges", query.MaxDiagnosticEdges)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
 	terminalNodeKinds, terminalKindsDisable, err := query.ParseTerminalNodeKinds(r.URL.Query().Get("terminalKinds"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -241,6 +251,8 @@ func (h *handler) diagnostic(w http.ResponseWriter, r *http.Request, kind string
 	result, err := h.runtime.QueryDiagnosticSubgraph(ctx, kind, namespace, name, query.DiagnosticOptions{
 		MaxDepth:            maxDepth,
 		StorageMaxDepth:     storageMaxDepth,
+		MaxNodes:            maxNodes,
+		MaxEdges:            maxEdges,
 		TerminalNodeKinds:   terminalNodeKinds,
 		ExpandTerminalNodes: expandTerminalNodes,
 	})
@@ -291,6 +303,20 @@ func parseOptionalDiagnosticDepth(raw, name string) (int, error) {
 		return 0, errors.New(name + " must be <= " + strconv.Itoa(query.MaxDiagnosticDepth))
 	}
 	return depth, nil
+}
+
+func parseOptionalDiagnosticLimit(raw, name string, max int) (int, error) {
+	limit, err := parseOptionalInt(raw)
+	if err != nil {
+		return 0, err
+	}
+	if limit < 0 {
+		return 0, errors.New(name + " must be >= 0")
+	}
+	if limit > max {
+		return 0, errors.New(name + " must be <= " + strconv.Itoa(max))
+	}
+	return limit, nil
 }
 
 func parseOptionalExpandDepth(raw, name string) (int, error) {

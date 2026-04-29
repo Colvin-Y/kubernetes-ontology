@@ -377,8 +377,14 @@ Diagnose a pod:
   --server "http://127.0.0.1:18080" \
   --diagnose-pod \
   --namespace default \
-  --name my-pod
+  --name my-pod \
+  --max-nodes 200 \
+  --max-edges 400
 ```
+
+Diagnostic responses include additive `partial`, `warnings`, `budgets`,
+`rankedEvidence`, `degradedSources`, and `conflicts` fields. Agents should use
+those fields to distinguish bounded evidence from complete cluster truth.
 
 Expand one graph node:
 
@@ -426,12 +432,14 @@ The daemon exposes the current in-memory ontology database over HTTP:
 - `GET /relations?from=...&kind=scheduled_on`
 - `GET /neighbors?entityGlobalId=...&direction=out`
 - `GET /expand?entityGlobalId=...&depth=1`
-- `GET /diagnostic/pod?namespace=default&name=my-pod`
+- `GET /diagnostic/pod?namespace=default&name=my-pod&maxNodes=200&maxEdges=400`
 - `GET /diagnostic/workload?namespace=default&name=my-deployment`
 
 Graph and list responses include additive `freshness` metadata when daemon
 runtime status is available. Error responses include `code`, `message`,
 `status`, `retryable`, and `source` alongside the historical `error` string.
+Diagnostic responses additionally include explicit partial/budget metadata and
+ranked evidence for downstream agents.
 
 ## Visualization
 
@@ -457,7 +465,9 @@ Open `http://127.0.0.1:8765`.
 
 The viewer can load live topology, query focused diagnostic graphs, expand and
 collapse nodes, filter by node or relation metadata, inspect provenance, and
-export the visible subgraph as JSON.
+export the visible subgraph as JSON. Focused diagnostic graphs show a
+Diagnostic Signals panel with budget truncation, warnings, conflicts, degraded
+sources, and ranked evidence before lower-level explanation text.
 
 ## Architecture
 
@@ -532,7 +542,8 @@ archives, so marketplace pages should link to the live repository path:
   open-source MVP.
 - RBAC topology is represented for ServiceAccount subjects and binding objects;
   it is not a full permission reasoning engine.
-- Evidence ranking is basic.
+- Evidence ranking currently starts with returned Event evidence and will grow
+  into richer signal ranking over time.
 - RDF/OWL materialization is not implemented.
 
 ## Roadmap

@@ -19,7 +19,11 @@ var (
 	ErrInvalidDiagnosticQuery  = errors.New("invalid diagnostic query")
 )
 
-const MaxDiagnosticDepth = 10
+const (
+	MaxDiagnosticDepth = 10
+	MaxDiagnosticNodes = 5000
+	MaxDiagnosticEdges = 10000
+)
 
 type RuntimeStatus struct {
 	Phase                       string
@@ -55,6 +59,8 @@ type Facade struct {
 type DiagnosticOptions struct {
 	MaxDepth            int
 	StorageMaxDepth     int
+	MaxNodes            int
+	MaxEdges            int
 	TerminalNodeKinds   []api.NodeKind
 	ExpandTerminalNodes bool
 }
@@ -71,6 +77,18 @@ func ValidateDiagnosticOptions(options DiagnosticOptions) error {
 	}
 	if options.StorageMaxDepth > MaxDiagnosticDepth {
 		return fmt.Errorf("%w: storageMaxDepth must be <= %d", ErrInvalidDiagnosticQuery, MaxDiagnosticDepth)
+	}
+	if options.MaxNodes < 0 {
+		return fmt.Errorf("%w: maxNodes must be >= 0", ErrInvalidDiagnosticQuery)
+	}
+	if options.MaxEdges < 0 {
+		return fmt.Errorf("%w: maxEdges must be >= 0", ErrInvalidDiagnosticQuery)
+	}
+	if options.MaxNodes > MaxDiagnosticNodes {
+		return fmt.Errorf("%w: maxNodes must be <= %d", ErrInvalidDiagnosticQuery, MaxDiagnosticNodes)
+	}
+	if options.MaxEdges > MaxDiagnosticEdges {
+		return fmt.Errorf("%w: maxEdges must be <= %d", ErrInvalidDiagnosticQuery, MaxDiagnosticEdges)
 	}
 	for _, kind := range options.TerminalNodeKinds {
 		if _, ok := normalizeNodeKind(string(kind)); !ok {
@@ -178,6 +196,12 @@ func (f *Facade) DiagnosticPolicy(options DiagnosticOptions) api.ExpansionPolicy
 	}
 	if options.StorageMaxDepth > 0 {
 		policy.StorageMaxDepth = options.StorageMaxDepth
+	}
+	if options.MaxNodes > 0 {
+		policy.MaxNodes = options.MaxNodes
+	}
+	if options.MaxEdges > 0 {
+		policy.MaxEdges = options.MaxEdges
 	}
 	if options.ExpandTerminalNodes {
 		policy.ExpandTerminalNodes = true

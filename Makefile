@@ -15,6 +15,8 @@ WORKLOAD_RESOURCES ?=
 CONTROLLER_RULES ?=
 MAX_DEPTH ?= 2
 STORAGE_MAX_DEPTH ?= 5
+MAX_NODES ?=
+MAX_EDGES ?=
 BOOTSTRAP_TIMEOUT ?= 2m
 OBSERVE_DURATION ?= 40s
 POLL_INTERVAL ?= 2s
@@ -36,6 +38,7 @@ EXPAND_DEPTH ?= 1
 OVERRIDE_ORIGINS := command line environment override
 make_arg = $(if $(filter $(OVERRIDE_ORIGINS),$(origin $(1))),--$(2) "$($(1))")
 make_context_namespaces_arg = $(if $(filter $(OVERRIDE_ORIGINS),$(origin CONTEXT_NAMESPACES) $(origin NAMESPACES)),--context-namespaces "$(CONTEXT_NAMESPACES)")
+make_diagnostic_budget_args = $(call make_arg,MAX_NODES,max-nodes) $(call make_arg,MAX_EDGES,max-edges)
 CLI_CONFIG_OVERRIDES = $(call make_arg,KUBECONFIG,kubeconfig) $(call make_arg,CLUSTER,cluster) $(make_context_namespaces_arg) $(call make_arg,WORKLOAD_RESOURCES,workload-resources) $(call make_arg,CONTROLLER_RULES,controller-rules) $(call make_arg,BOOTSTRAP_TIMEOUT,bootstrap-timeout)
 DAEMON_CONFIG_OVERRIDES = $(CLI_CONFIG_OVERRIDES) $(call make_arg,SERVER_ADDR,addr) $(call make_arg,POLL_INTERVAL,poll-interval)
 CLI_CONFIG_ARGS = $(if $(CONFIG),--config "$(CONFIG)" $(CLI_CONFIG_OVERRIDES),--kubeconfig "$(KUBECONFIG)" --cluster "$(CLUSTER)" --context-namespaces "$(CONTEXT_NAMESPACES)" --workload-resources "$(WORKLOAD_RESOURCES)" --controller-rules "$(CONTROLLER_RULES)" --bootstrap-timeout "$(BOOTSTRAP_TIMEOUT)")
@@ -160,7 +163,7 @@ diagnose-pod: build require-kubeconfig require-entry
 	  --namespace "$(NAMESPACE)" \
 	  --name "$(NAME)" \
 	  --max-depth "$(MAX_DEPTH)" \
-	  --storage-max-depth "$(STORAGE_MAX_DEPTH)"
+	  --storage-max-depth "$(STORAGE_MAX_DEPTH)" $(make_diagnostic_budget_args)
 
 diagnose-workload: build require-kubeconfig require-entry
 	$(BINARY) \
@@ -169,7 +172,7 @@ diagnose-workload: build require-kubeconfig require-entry
 	  --namespace "$(NAMESPACE)" \
 	  --name "$(NAME)" \
 	  --max-depth "$(MAX_DEPTH)" \
-	  --storage-max-depth "$(STORAGE_MAX_DEPTH)"
+	  --storage-max-depth "$(STORAGE_MAX_DEPTH)" $(make_diagnostic_budget_args)
 
 diagnose-pod-server: build require-entry
 	$(BINARY) \
@@ -178,7 +181,7 @@ diagnose-pod-server: build require-entry
 	  --namespace "$(NAMESPACE)" \
 	  --name "$(NAME)" \
 	  --max-depth "$(MAX_DEPTH)" \
-	  --storage-max-depth "$(STORAGE_MAX_DEPTH)"
+	  --storage-max-depth "$(STORAGE_MAX_DEPTH)" $(make_diagnostic_budget_args)
 
 diagnose-workload-server: build require-entry
 	$(BINARY) \
@@ -187,7 +190,7 @@ diagnose-workload-server: build require-entry
 	  --namespace "$(NAMESPACE)" \
 	  --name "$(NAME)" \
 	  --max-depth "$(MAX_DEPTH)" \
-	  --storage-max-depth "$(STORAGE_MAX_DEPTH)"
+	  --storage-max-depth "$(STORAGE_MAX_DEPTH)" $(make_diagnostic_budget_args)
 
 visualize:
 	@echo "Starting ontology viewer on http://$(VIEWER_HOST):$(VIEWER_PORT)"

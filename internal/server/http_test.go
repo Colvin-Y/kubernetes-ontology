@@ -229,6 +229,38 @@ func TestDiagnosticParsesTerminalOptions(t *testing.T) {
 	}
 }
 
+func TestDiagnosticParsesBudgetOptions(t *testing.T) {
+	var got query.DiagnosticOptions
+	server := httptest.NewServer(NewHandler(stubRuntime{capturedOptions: &got}))
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + "/diagnostic/pod?namespace=default&name=frontend&maxNodes=25&maxEdges=50")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+	if got.MaxNodes != 25 || got.MaxEdges != 50 {
+		t.Fatalf("expected diagnostic budgets to be parsed, got %+v", got)
+	}
+}
+
+func TestDiagnosticRejectsInvalidBudgetLimit(t *testing.T) {
+	server := httptest.NewServer(NewHandler(stubRuntime{}))
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + "/diagnostic/pod?namespace=default&name=frontend&maxNodes=-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", resp.StatusCode)
+	}
+}
+
 func TestDiagnosticRejectsInvalidTerminalKind(t *testing.T) {
 	server := httptest.NewServer(NewHandler(stubRuntime{}))
 	defer server.Close()

@@ -211,9 +211,148 @@ func TestGetDiagnosticSubgraphScopesCSINodeAgentsForPodStoragePath(t *testing.T)
 	}
 }
 
+func TestGetDiagnosticSubgraphReturnsPartialWhenNodeBudgetExceeded(t *testing.T) {
+	store := memorystore.NewStore()
+	kernel := graph.NewKernel(store, store)
+	service := NewService(kernel)
+
+	pod := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "Pod", Namespace: "default", Name: "app", UID: "p1"}), Kind: model.NodeKindPod, Name: "app", Namespace: "default"}
+	serviceA := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "Service", Namespace: "default", Name: "app-a", UID: "s1"}), Kind: model.NodeKindService, Name: "app-a", Namespace: "default"}
+	serviceB := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "Service", Namespace: "default", Name: "app-b", UID: "s2"}), Kind: model.NodeKindService, Name: "app-b", Namespace: "default"}
+	for _, node := range []model.Node{pod, serviceA, serviceB} {
+		if err := kernel.UpsertNode(node); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, edge := range []model.Edge{
+		model.NewEdge(serviceA.ID, pod.ID, model.EdgeKindSelectsPod),
+		model.NewEdge(serviceB.ID, pod.ID, model.EdgeKindSelectsPod),
+	} {
+		if err := kernel.UpsertEdge(edge); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	result, err := service.GetDiagnosticSubgraph(api.EntryRef{Kind: api.NodeKindPod, CanonicalID: pod.ID.String()}, api.ExpansionPolicy{
+		MaxDepth:        1,
+		MaxNodes:        2,
+		MaxEdges:        10,
+		IncludeStorage:  true,
+		StorageMaxDepth: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Partial {
+		t.Fatal("expected diagnostic graph to be marked partial")
+	}
+	if len(result.Nodes) > 2 {
+		t.Fatalf("expected node budget to cap nodes at 2, got %d", len(result.Nodes))
+	}
+	if !hasReason(result.Budgets.TruncationReasons, "maxNodes") {
+		t.Fatalf("expected maxNodes truncation reason, got %#v", result.Budgets.TruncationReasons)
+	}
+	if len(result.Warnings) != 1 || result.Warnings[0].Code != "diagnostic_budget_exceeded" {
+		t.Fatalf("expected budget warning, got %#v", result.Warnings)
+	}
+}
+
+func TestGetDiagnosticSubgraphReturnsPartialWhenEdgeBudgetExceeded(t *testing.T) {
+	store := memorystore.NewStore()
+	kernel := graph.NewKernel(store, store)
+	service := NewService(kernel)
+
+	pod := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "Pod", Namespace: "default", Name: "app", UID: "p1"}), Kind: model.NodeKindPod, Name: "app", Namespace: "default"}
+	node := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "Node", Name: "node-a", UID: "n1"}), Kind: model.NodeKindNode, Name: "node-a"}
+	serviceAccount := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "ServiceAccount", Namespace: "default", Name: "default", UID: "sa1"}), Kind: model.NodeKindServiceAccount, Name: "default", Namespace: "default"}
+	for _, item := range []model.Node{pod, node, serviceAccount} {
+		if err := kernel.UpsertNode(item); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, edge := range []model.Edge{
+		model.NewEdge(pod.ID, node.ID, model.EdgeKindScheduledOn),
+		model.NewEdge(pod.ID, serviceAccount.ID, model.EdgeKindUsesServiceAccount),
+	} {
+		if err := kernel.UpsertEdge(edge); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	result, err := service.GetDiagnosticSubgraph(api.EntryRef{Kind: api.NodeKindPod, CanonicalID: pod.ID.String()}, api.ExpansionPolicy{
+		MaxDepth:        1,
+		MaxNodes:        10,
+		MaxEdges:        1,
+		StorageMaxDepth: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Partial {
+		t.Fatal("expected diagnostic graph to be marked partial")
+	}
+	if len(result.Edges) > 1 {
+		t.Fatalf("expected edge budget to cap edges at 1, got %d", len(result.Edges))
+	}
+	if !hasReason(result.Budgets.TruncationReasons, "maxEdges") {
+		t.Fatalf("expected maxEdges truncation reason, got %#v", result.Budgets.TruncationReasons)
+	}
+}
+
+func TestGetDiagnosticSubgraphRanksEventEvidence(t *testing.T) {
+	store := memorystore.NewStore()
+	kernel := graph.NewKernel(store, store)
+	service := NewService(kernel)
+
+	pod := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "Pod", Namespace: "default", Name: "app", UID: "p1"}), Kind: model.NodeKindPod, Name: "app", Namespace: "default"}
+	failedEvent := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "Event", Namespace: "default", Name: "app.1", UID: "e1"}), Kind: model.NodeKindEvent, Name: "app.1", Namespace: "default", Attributes: map[string]any{"reason": "Failed", "message": "Failed to pull image"}}
+	normalEvent := model.Node{ID: model.NewCanonicalID(model.ResourceRef{Cluster: "cluster-a", Group: "core", Kind: "Event", Namespace: "default", Name: "app.2", UID: "e2"}), Kind: model.NodeKindEvent, Name: "app.2", Namespace: "default", Attributes: map[string]any{"reason": "Scheduled", "message": "Successfully assigned"}}
+	for _, node := range []model.Node{pod, failedEvent, normalEvent} {
+		if err := kernel.UpsertNode(node); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, edge := range []model.Edge{
+		model.NewEdge(failedEvent.ID, pod.ID, model.EdgeKindReportedByEvent),
+		model.NewEdge(normalEvent.ID, pod.ID, model.EdgeKindReportedByEvent),
+	} {
+		if err := kernel.UpsertEdge(edge); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	result, err := service.GetDiagnosticSubgraph(api.EntryRef{Kind: api.NodeKindPod, CanonicalID: pod.ID.String()}, api.ExpansionPolicy{
+		MaxDepth:        1,
+		MaxNodes:        10,
+		MaxEdges:        10,
+		StorageMaxDepth: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.RankedEvidence) != 2 {
+		t.Fatalf("expected ranked evidence from events, got %#v", result.RankedEvidence)
+	}
+	if result.RankedEvidence[0].Reason != "Failed" || result.RankedEvidence[0].Severity != "warning" {
+		t.Fatalf("expected failed event first, got %#v", result.RankedEvidence)
+	}
+	if result.RankedEvidence[0].Rank != 1 || result.RankedEvidence[1].Rank != 2 {
+		t.Fatalf("expected stable rank numbers, got %#v", result.RankedEvidence)
+	}
+}
+
 func diagnosticContainsKind(nodes []api.DiagnosticNode, kind api.NodeKind) bool {
 	for _, node := range nodes {
 		if node.Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
+func hasReason(reasons []string, want string) bool {
+	for _, reason := range reasons {
+		if reason == want {
 			return true
 		}
 	}

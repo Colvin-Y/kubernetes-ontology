@@ -3,7 +3,7 @@ name: kubernetes-ontology-access
 description: Use this skill whenever a user wants to onboard, deploy, install, or operate kubernetes-ontology; set up its Helm chart, release CLI, daemon, or topology viewer; run Kubernetes topology queries; diagnose Pod or Workload failures with AI-agent workflows; or connect human visual troubleshooting to the CLI and HTTP API. This skill should trigger for requests about Kubernetes ontology onboarding, Helm deployment, topology query, diagnostic subgraph, ImagePullBackOff or storage/RBAC/Event graph troubleshooting, viewer usage, and agent integration.
 metadata:
   author: Colvin-Y
-  version: "0.1.4"
+  version: "0.1.5"
   license: Apache-2.0
   category: devops
   tags:
@@ -369,19 +369,30 @@ kubernetes-ontology \
 ### Agent Reasoning Rules
 
 - Treat the response as a bounded evidence graph, not complete cluster truth.
+- Check `partial`, `warnings`, `degradedSources`, `budgets`,
+  `rankedEvidence`, and `conflicts` before forming a conclusion.
 - Index nodes by `canonicalId`; join edges by `from` and `to`.
 - Prefer edge/node attributes and provenance over explanation text for hard
   conclusions.
-- Use explanation text for narrative and suspicion ranking.
+- Use `rankedEvidence` first for suspicion ranking, then explanation text for
+  narrative.
+- If `budgets.truncated=true`, say which budget was hit and suggest narrowing
+  namespace/depth before raising graph caps.
 - If evidence is missing, report that it is missing from the current graph
   slice rather than claiming the object does not exist anywhere.
 - Prefer asserted and observed facts before inferred shortcuts.
+- Preserve conflicts in the user-facing answer instead of choosing one owner or
+  cause silently.
 - For contract details, consult `AI_CONTRACT.md`.
 
 Current limits to keep visible in agent reasoning:
 
-- `explanation` content is useful but best-effort and not fully ranked.
+- `rankedEvidence` currently starts with Event evidence; not every signal type
+  is ranked yet.
+- `explanation` content is useful but best-effort narrative.
 - Traversal policy can hide valid facts outside the selected graph slice.
+- Diagnostic budgets can intentionally truncate the graph. Treat
+  `partial=true` as a correctness constraint, not a cosmetic warning.
 - CSI component correlation is configurable with `csiComponentRules`; no
   driver-specific component inference runs unless a matching rule is configured.
 - A missing edge in one diagnostic response should be treated as missing
@@ -396,6 +407,8 @@ For diagnostic answers, respond with:
 [1-3 sentence diagnosis]
 
 ## Evidence
+- [partial/warning/budget/conflict status, if present]
+- [rankedEvidence item, if present]
 - [node/edge/provenance fact]
 - [node/edge/provenance fact]
 

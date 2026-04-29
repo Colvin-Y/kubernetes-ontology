@@ -88,6 +88,8 @@ type EntryRef struct {
 type ExpansionPolicy struct {
 	MaxDepth               int        `json:"maxDepth"`
 	StorageMaxDepth        int        `json:"storageMaxDepth"`
+	MaxNodes               int        `json:"maxNodes,omitempty"`
+	MaxEdges               int        `json:"maxEdges,omitempty"`
 	TerminalNodeKinds      []NodeKind `json:"terminalNodeKinds,omitempty"`
 	ExpandTerminalNodes    bool       `json:"expandTerminalNodes,omitempty"`
 	IncludeSiblingPods     bool       `json:"includeSiblingPods"`
@@ -122,12 +124,68 @@ type DiagnosticEdge struct {
 	Provenance EdgeProvenance `json:"provenance"`
 }
 
+type DiagnosticWarning struct {
+	Code       string `json:"code"`
+	Severity   string `json:"severity,omitempty"`
+	Message    string `json:"message"`
+	Source     string `json:"source,omitempty"`
+	NextAction string `json:"nextAction,omitempty"`
+}
+
+type DegradedSource struct {
+	Source     string `json:"source"`
+	Status     string `json:"status"`
+	Reason     string `json:"reason,omitempty"`
+	Message    string `json:"message,omitempty"`
+	Retryable  bool   `json:"retryable,omitempty"`
+	NextAction string `json:"nextAction,omitempty"`
+}
+
+type DiagnosticBudget struct {
+	MaxDepth          int      `json:"maxDepth"`
+	StorageMaxDepth   int      `json:"storageMaxDepth"`
+	MaxNodes          int      `json:"maxNodes"`
+	MaxEdges          int      `json:"maxEdges"`
+	NodeCount         int      `json:"nodeCount"`
+	EdgeCount         int      `json:"edgeCount"`
+	Truncated         bool     `json:"truncated"`
+	TruncationReasons []string `json:"truncationReasons,omitempty"`
+}
+
+type RankedEvidence struct {
+	Rank       int        `json:"rank"`
+	Source     string     `json:"source"`
+	NodeID     string     `json:"nodeId,omitempty"`
+	EdgeKey    string     `json:"edgeKey,omitempty"`
+	Kind       string     `json:"kind,omitempty"`
+	Severity   string     `json:"severity,omitempty"`
+	Reason     string     `json:"reason,omitempty"`
+	Message    string     `json:"message,omitempty"`
+	Confidence string     `json:"confidence,omitempty"`
+	Score      float64    `json:"score,omitempty"`
+	Timestamp  *time.Time `json:"timestamp,omitempty"`
+}
+
+type DiagnosticConflict struct {
+	Code       string   `json:"code"`
+	Message    string   `json:"message"`
+	NodeIDs    []string `json:"nodeIds,omitempty"`
+	EdgeKeys   []string `json:"edgeKeys,omitempty"`
+	Confidence string   `json:"confidence,omitempty"`
+}
+
 type DiagnosticSubgraph struct {
-	Entry       EntryRef         `json:"entry"`
-	Nodes       []DiagnosticNode `json:"nodes"`
-	Edges       []DiagnosticEdge `json:"edges"`
-	CollectedAt *time.Time       `json:"collectedAt,omitempty"`
-	Explanation []string         `json:"explanation,omitempty"`
+	Entry           EntryRef             `json:"entry"`
+	Nodes           []DiagnosticNode     `json:"nodes"`
+	Edges           []DiagnosticEdge     `json:"edges"`
+	CollectedAt     *time.Time           `json:"collectedAt,omitempty"`
+	Explanation     []string             `json:"explanation,omitempty"`
+	Warnings        []DiagnosticWarning  `json:"warnings,omitempty"`
+	Partial         bool                 `json:"partial"`
+	DegradedSources []DegradedSource     `json:"degradedSources,omitempty"`
+	Budgets         DiagnosticBudget     `json:"budgets"`
+	RankedEvidence  []RankedEvidence     `json:"rankedEvidence,omitempty"`
+	Conflicts       []DiagnosticConflict `json:"conflicts,omitempty"`
 }
 
 type GraphSubgraph struct {

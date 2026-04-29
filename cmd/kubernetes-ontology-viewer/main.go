@@ -177,6 +177,12 @@ func (h *handler) serveDiagnostic(w http.ResponseWriter, r *http.Request) {
 	params.Set("name", name)
 	params.Set("maxDepth", first(q, "maxDepth", "2"))
 	params.Set("storageMaxDepth", first(q, "storageMaxDepth", "5"))
+	if maxNodes := first(q, "maxNodes", ""); maxNodes != "" {
+		params.Set("maxNodes", maxNodes)
+	}
+	if maxEdges := first(q, "maxEdges", ""); maxEdges != "" {
+		params.Set("maxEdges", maxEdges)
+	}
 	if terminalKinds := first(q, "terminalKinds", ""); terminalKinds != "" {
 		params.Set("terminalKinds", terminalKinds)
 	}

@@ -303,8 +303,14 @@ OpenKruise，这是正常情况，不需要为此中断启动。
   --server "http://127.0.0.1:18080" \
   --diagnose-pod \
   --namespace default \
-  --name my-pod
+  --name my-pod \
+  --max-nodes 200 \
+  --max-edges 400
 ```
+
+诊断返回会额外包含 `partial`、`warnings`、`budgets`、
+`rankedEvidence`、`degradedSources` 和 `conflicts`。Agent 应优先读取
+这些字段，区分“有边界的证据图”和“完整集群事实”。
 
 展开一个图节点：
 
@@ -328,16 +334,18 @@ daemon 暴露只读 HTTP API：
 - `GET /relations?from=...&kind=scheduled_on`
 - `GET /neighbors?entityGlobalId=...&direction=out`
 - `GET /expand?entityGlobalId=...&depth=1`
-- `GET /diagnostic/pod?namespace=default&name=my-pod`
+- `GET /diagnostic/pod?namespace=default&name=my-pod&maxNodes=200&maxEdges=400`
 - `GET /diagnostic/workload?namespace=default&name=my-deployment`
 
 返回结果会尽量带上 `freshness` 元数据，帮助调用方判断图数据是否 ready、最后
-一次刷新是什么时候。
+一次刷新是什么时候。诊断结果还会带上 partial/budget 元数据和 ranked
+evidence，方便下游 Agent 做安全推理。
 
 ## 可视化
 
 本地拓扑 viewer 可以展示 live topology、诊断子图、节点详情、边来源和导出
-JSON。
+JSON。诊断子图会在 Diagnostic Signals 面板里优先展示预算截断、warning、
+conflict、degraded source 和 ranked evidence。
 
 启动 daemon 后运行：
 

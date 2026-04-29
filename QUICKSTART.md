@@ -531,7 +531,9 @@ go run ./cmd/kubernetes-ontology \
   --server "http://127.0.0.1:18080" \
   --diagnose-pod \
   --namespace default \
-  --name my-pod
+  --name my-pod \
+  --max-nodes 200 \
+  --max-edges 400
 ```
 
 For workloads:
@@ -546,12 +548,16 @@ For workloads:
 
 The diagnostic response is a focused subgraph intended for the MVP
 fault-diagnosis workflow and downstream AI-agent consumption.
+It includes additive `partial`, `warnings`, `budgets`, `rankedEvidence`,
+`degradedSources`, and `conflicts` fields so agents can tell bounded evidence
+from complete cluster truth.
 
 Pod-centered diagnostic queries keep shared nodes bounded by default. For
 example, a pod's `ServiceAccount` is shown, but the traversal does not continue
 through that ServiceAccount to every other pod using it. Use
 `terminalKinds=...` or `expandTerminalNodes=true` on HTTP queries when you need
-that deeper fan-out.
+that deeper fan-out. Use `maxNodes` and `maxEdges` when you need an explicit
+response budget.
 
 ### Use HTTP Directly
 
@@ -563,13 +569,14 @@ curl -s 'http://127.0.0.1:18080/entities?kind=Pod&namespace=default&limit=20'
 curl -s 'http://127.0.0.1:18080/entity?kind=Pod&namespace=default&name=my-pod'
 curl -s 'http://127.0.0.1:18080/neighbors?entityGlobalId=your/entityGlobalId&direction=out'
 curl -s 'http://127.0.0.1:18080/expand?entityGlobalId=your/entityGlobalId&depth=1'
-curl -s 'http://127.0.0.1:18080/diagnostic/pod?namespace=default&name=my-pod'
+curl -s 'http://127.0.0.1:18080/diagnostic/pod?namespace=default&name=my-pod&maxNodes=200&maxEdges=400'
 curl -s 'http://127.0.0.1:18080/diagnostic/pod?namespace=default&name=my-pod&expandTerminalNodes=true'
 ```
 
 Graph and list responses include the original fields plus additive `freshness`
 metadata from the daemon runtime status. Error responses include the historical
 `error` string plus `code`, `message`, `status`, `retryable`, and `source`.
+Diagnostic responses additionally include budget and ranked-evidence metadata.
 
 For agent workflows that need machine-readable stderr on failures:
 
@@ -599,7 +606,8 @@ http://127.0.0.1:8765
 
 Click `Load topology` to read live entities and relations from `SERVER_URL`.
 Use `Auto refresh` for continuous polling, or load a focused pod/workload
-diagnostic graph from the same page.
+diagnostic graph from the same page. The Diagnostic Signals panel surfaces
+budget truncation, warnings, conflicts, degraded sources, and ranked evidence.
 
 Select a node and use `Expand 1 hop` to fetch the next layer from the daemon.
 The CLI equivalent is:
