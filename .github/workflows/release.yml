@@ -24,6 +24,8 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
 
+      - uses: azure/setup-helm@v4
+
       - name: Test
         run: go test -p 1 ./...
 
@@ -53,7 +55,7 @@ jobs:
                 -ldflags="-s -w" \
                 -o "${work}/${cmd}${ext}" "./cmd/${cmd}"
             done
-            cp README.md README.zh-CN.md QUICKSTART.md AI_CONTRACT.md LICENSE "${work}/"
+            cp README.md README.zh-CN.md QUICKSTART.md CHANGELOG.md AI_CONTRACT.md LICENSE "${work}/"
             mkdir -p "${work}/docs"
             cp -R docs/assets "${work}/docs/"
             mkdir -p "${work}/local"
@@ -65,6 +67,7 @@ jobs:
             fi
             rm -rf "${work}"
           done
+          helm package charts/kubernetes-ontology --destination dist
           (cd dist && sha256sum * > checksums.txt)
 
       - name: Create GitHub release
