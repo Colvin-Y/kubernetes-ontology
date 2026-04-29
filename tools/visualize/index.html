@@ -695,6 +695,16 @@
         <label for="diagnosticTerminalKinds">Stop expanding at</label>
         <input id="diagnosticTerminalKinds" type="text" placeholder="default" />
       </div>
+      <div class="grid-2">
+        <div class="field">
+          <label for="diagnosticMaxNodes">Max nodes</label>
+          <input id="diagnosticMaxNodes" type="number" min="1" placeholder="default" />
+        </div>
+        <div class="field">
+          <label for="diagnosticMaxEdges">Max edges</label>
+          <input id="diagnosticMaxEdges" type="number" min="1" placeholder="default" />
+        </div>
+      </div>
       <label class="row" style="gap:6px;margin-bottom:10px">
         <input id="expandTerminalNodes" type="checkbox" />
         <span class="muted">Expand through stop nodes</span>
@@ -816,6 +826,11 @@
     </div>
 
     <div class="section">
+      <h2>Diagnostic Signals</h2>
+      <div id="diagnosticSignals" class="list"></div>
+    </div>
+
+    <div class="section">
       <h2>Explanations</h2>
       <div id="explanations" class="list"></div>
     </div>
@@ -898,6 +913,8 @@
       showEdgeLabels: false,
       diagnosticMaxDepth: '2',
       diagnosticStorageMaxDepth: '5',
+      diagnosticMaxNodes: '',
+      diagnosticMaxEdges: '',
       baseGraph: null,
       expansionLayers: [],
       lastLoader: null,
@@ -929,6 +946,8 @@
       diagnosticNamespace: document.getElementById('diagnosticNamespace'),
       diagnosticName: document.getElementById('diagnosticName'),
       diagnosticTerminalKinds: document.getElementById('diagnosticTerminalKinds'),
+      diagnosticMaxNodes: document.getElementById('diagnosticMaxNodes'),
+      diagnosticMaxEdges: document.getElementById('diagnosticMaxEdges'),
       expandTerminalNodes: document.getElementById('expandTerminalNodes'),
       loadDiagnosticBtn: document.getElementById('loadDiagnosticBtn'),
       expandSelectedBtn: document.getElementById('expandSelectedBtn'),
@@ -960,6 +979,7 @@
       selectionFacts: document.getElementById('selectionFacts'),
       collapseSelectedBtn: document.getElementById('collapseSelectedBtn'),
       connectionsList: document.getElementById('connectionsList'),
+      diagnosticSignals: document.getElementById('diagnosticSignals'),
       detailsBox: document.getElementById('detailsBox'),
       canvasState: document.getElementById('canvasState'),
       canvasSpinner: document.getElementById('canvasSpinner'),
@@ -1007,8 +1027,12 @@
       if (params.get('name')) el.diagnosticName.value = params.get('name');
       if (params.get('maxDepth')) state.diagnosticMaxDepth = params.get('maxDepth');
       if (params.get('storageMaxDepth')) state.diagnosticStorageMaxDepth = params.get('storageMaxDepth');
+      if (params.get('maxNodes')) state.diagnosticMaxNodes = params.get('maxNodes');
+      if (params.get('maxEdges')) state.diagnosticMaxEdges = params.get('maxEdges');
       if (params.get('terminalKinds')) el.diagnosticTerminalKinds.value = params.get('terminalKinds');
       if (params.get('expandTerminalNodes')) el.expandTerminalNodes.checked = params.get('expandTerminalNodes') === 'true';
+      el.diagnosticMaxNodes.value = state.diagnosticMaxNodes;
+      el.diagnosticMaxEdges.value = state.diagnosticMaxEdges;
       syncDiagnosticNamespaceControl();
       if (params.get('file')) loadFromPath(params.get('file')).catch(showLoadError);
       if (params.get('diagnostic') === '1') loadDiagnosticFromServer().catch(showLoadError);
@@ -1105,6 +1129,12 @@
       if (namespace) params.set('namespace', namespace);
       const terminalKinds = el.diagnosticTerminalKinds.value.trim();
       if (terminalKinds) params.set('terminalKinds', terminalKinds);
+      const maxNodes = el.diagnosticMaxNodes.value.trim();
+      const maxEdges = el.diagnosticMaxEdges.value.trim();
+      state.diagnosticMaxNodes = maxNodes;
+      state.diagnosticMaxEdges = maxEdges;
+      if (maxNodes) params.set('maxNodes', maxNodes);
+      if (maxEdges) params.set('maxEdges', maxEdges);
       if (el.expandTerminalNodes.checked) params.set('expandTerminalNodes', 'true');
       state.lastLoader = loadDiagnosticFromServer;
       setBusy(true);
@@ -1433,8 +1463,20 @@
         nodes: [...nodeById.values()].sort(compareNode),
         edges: [...edgeByKey.values()].sort((a, b) => edgeKey(a).localeCompare(edgeKey(b))),
         collectedAt,
-        explanation: explanations.slice(-40)
+        explanation: explanations.slice(-40),
+        warnings: mergeArrays('warnings'),
+        degradedSources: mergeArrays('degradedSources'),
+        rankedEvidence: mergeArrays('rankedEvidence'),
+        conflicts: mergeArrays('conflicts'),
+        partial: state.baseGraph.partial || state.expansionLayers.some((layer) => layer.partial),
+        budgets: state.baseGraph.budgets || {}
       };
+    }
+
+    function mergeArrays(name) {
+      const out = [...(state.baseGraph?.[name] || [])];
+      for (const layer of state.expansionLayers) out.push(...(layer[name] || []));
+      return out;
     }
 
     function isNodeExpanded(entityId) {
@@ -1462,7 +1504,13 @@
           nodes,
           edges,
           collectedAt: new Date().toISOString(),
-          explanation: [`Loaded ${nodes.length} entities and ${edges.length} relations from ${raw.server || 'server'}.`]
+          explanation: [`Loaded ${nodes.length} entities and ${edges.length} relations from ${raw.server || 'server'}.`],
+          warnings: [],
+          degradedSources: [],
+          rankedEvidence: [],
+          conflicts: [],
+          partial: false,
+          budgets: {}
         };
       }
 
@@ -1483,7 +1531,14 @@
         nodes,
         edges,
         collectedAt: raw?.collectedAt || '',
-        explanation: raw?.explanation || []
+        explanation: raw?.explanation || [],
+        warnings: raw?.warnings || [],
+        degradedSources: raw?.degradedSources || [],
+        rankedEvidence: raw?.rankedEvidence || [],
+        conflicts: raw?.conflicts || [],
+        partial: !!raw?.partial,
+        budgets: raw?.budgets || {},
+        freshness: raw?.freshness || {}
       };
     }
 
@@ -1661,6 +1716,7 @@
       el.edgeCount.textContent = String(graph.edges.length);
       el.visibleCount.textContent = String(nodes.length);
       el.entrySummary.innerHTML = renderSummary(graph);
+      renderDiagnosticSignals(graph);
       renderExplanations(graph.explanation || []);
       renderSearchResults(nodes);
       renderGraph(nodes, edges);
@@ -1675,6 +1731,9 @@
       if (graph.collectedAt) parts.push(`Collected: ${escapeHtml(String(graph.collectedAt))}`);
       const phase = statusValue(graph.status, 'phase');
       if (phase) parts.push(`Runtime: ${escapeHtml(phase)}`);
+      if (graph.partial) parts.push('Partial');
+      const warningCount = (graph.warnings || []).length + (graph.degradedSources || []).length + (graph.conflicts || []).length;
+      if (warningCount) parts.push(`${warningCount} signal${warningCount === 1 ? '' : 's'}`);
       return parts.map((part) => `<span class="pill">${part}</span>`).join('');
     }
 
@@ -1742,6 +1801,54 @@
         div.textContent = item;
         el.explanations.appendChild(div);
       }
+    }
+
+    function renderDiagnosticSignals(graph) {
+      el.diagnosticSignals.innerHTML = '';
+      if (!graph) return;
+      const warnings = graph.warnings || [];
+      const degraded = graph.degradedSources || [];
+      const conflicts = graph.conflicts || [];
+      const evidence = graph.rankedEvidence || [];
+      const budget = graph.budgets || {};
+      const hasBudget = budget.maxNodes || budget.maxEdges || budget.truncated;
+      if (!warnings.length && !degraded.length && !conflicts.length && !evidence.length && !graph.partial && !hasBudget) {
+        el.diagnosticSignals.innerHTML = '<div class="muted">No diagnostic metadata.</div>';
+        return;
+      }
+      if (graph.partial || hasBudget) {
+        const reasons = (budget.truncationReasons || []).join(', ');
+        appendSignal('Budget', [
+          graph.partial ? 'Partial graph' : 'Complete graph',
+          reasons ? `reasons: ${reasons}` : '',
+          budget.maxNodes ? `nodes ${budget.nodeCount || graph.nodes.length}/${budget.maxNodes}` : '',
+          budget.maxEdges ? `edges ${budget.edgeCount || graph.edges.length}/${budget.maxEdges}` : ''
+        ].filter(Boolean).join(' - '));
+      }
+      for (const warning of warnings.slice(0, 6)) {
+        appendSignal(warning.code || 'warning', warning.message || '', warning.nextAction || '');
+      }
+      for (const source of degraded.slice(0, 6)) {
+        appendSignal(source.source || 'degraded source', [source.status, source.reason, source.message].filter(Boolean).join(' - '), source.nextAction || '');
+      }
+      for (const conflict of conflicts.slice(0, 6)) {
+        appendSignal(conflict.code || 'conflict', conflict.message || '', conflict.confidence || '');
+      }
+      for (const item of evidence.slice(0, 8)) {
+        const title = `#${item.rank || '?'} ${item.reason || item.kind || item.source || 'evidence'}`;
+        appendSignal(title, item.message || item.nodeId || '', [item.severity, item.confidence].filter(Boolean).join(' - '));
+      }
+    }
+
+    function appendSignal(title, body, footer = '') {
+      const div = document.createElement('div');
+      div.className = 'item';
+      div.innerHTML = `
+        <div class="item-title">${escapeHtml(title)}</div>
+        ${body ? `<div class="item-subtitle">${escapeHtml(body)}</div>` : ''}
+        ${footer ? `<div class="muted" style="margin-top:4px">${escapeHtml(footer)}</div>` : ''}
+      `;
+      el.diagnosticSignals.appendChild(div);
     }
 
     function renderGraph(nodes, edges) {
@@ -2352,7 +2459,14 @@
         nodes: (graph.nodes || []).map(stripRaw),
         edges: (graph.edges || []).map(stripRaw),
         collectedAt: graph.collectedAt || '',
-        explanation: graph.explanation || []
+        explanation: graph.explanation || [],
+        warnings: graph.warnings || [],
+        degradedSources: graph.degradedSources || [],
+        rankedEvidence: graph.rankedEvidence || [],
+        conflicts: graph.conflicts || [],
+        partial: !!graph.partial,
+        budgets: graph.budgets || {},
+        freshness: graph.freshness || {}
       };
     }
 

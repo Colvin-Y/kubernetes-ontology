@@ -42,6 +42,8 @@ func main() {
 	var terminalKindsRaw string
 	var maxDepth int
 	var storageMaxDepth int
+	var maxNodes int
+	var maxEdges int
 	var expandTerminalNodes bool
 	var bootstrapTimeout time.Duration
 	var statusOnly bool
@@ -82,6 +84,8 @@ func main() {
 	flag.StringVar(&terminalKindsRaw, "terminal-kinds", "", "Comma-separated diagnostic terminal node kinds. Empty uses defaults; 'none' disables terminal boundaries.")
 	flag.IntVar(&maxDepth, "max-depth", 2, "Maximum general BFS depth for diagnostic subgraph traversal")
 	flag.IntVar(&storageMaxDepth, "storage-max-depth", 5, "Maximum BFS depth for storage and CSI related traversal")
+	flag.IntVar(&maxNodes, "max-nodes", 0, "Maximum diagnostic nodes to return. Empty uses the built-in safe default.")
+	flag.IntVar(&maxEdges, "max-edges", 0, "Maximum diagnostic edges to return. Empty uses the built-in safe default.")
 	flag.BoolVar(&expandTerminalNodes, "expand-terminal-nodes", false, "Traverse through diagnostic terminal nodes instead of stopping at them")
 	flag.DurationVar(&bootstrapTimeout, "bootstrap-timeout", 2*time.Minute, "Timeout for initial full snapshot bootstrap")
 	flag.BoolVar(&statusOnly, "status-only", false, "Bootstrap runtime and print runtime status instead of querying a diagnostic subgraph")
@@ -168,6 +172,8 @@ func main() {
 			name:                name,
 			maxDepth:            maxDepth,
 			storageMaxDepth:     storageMaxDepth,
+			maxNodes:            maxNodes,
+			maxEdges:            maxEdges,
 			terminalNodeKinds:   terminalNodeKinds,
 			expandTerminalNodes: expandTerminalNodes,
 			getEntity:           getEntity,
@@ -305,6 +311,8 @@ func main() {
 	result, err := manager.Facade().QueryDiagnosticSubgraph(entryKind, namespace, name, query.DiagnosticOptions{
 		MaxDepth:            maxDepth,
 		StorageMaxDepth:     storageMaxDepth,
+		MaxNodes:            maxNodes,
+		MaxEdges:            maxEdges,
 		TerminalNodeKinds:   terminalNodeKinds,
 		ExpandTerminalNodes: expandTerminalNodes,
 	})
@@ -471,6 +479,8 @@ type serverQueryOptions struct {
 	name                string
 	maxDepth            int
 	storageMaxDepth     int
+	maxNodes            int
+	maxEdges            int
 	terminalNodeKinds   []api.NodeKind
 	expandTerminalNodes bool
 	getEntity           bool
@@ -538,6 +548,12 @@ func queryServer(server string, options serverQueryOptions) error {
 	}
 	if options.storageMaxDepth > 0 {
 		values.Set("storageMaxDepth", strconv.Itoa(options.storageMaxDepth))
+	}
+	if options.maxNodes > 0 {
+		values.Set("maxNodes", strconv.Itoa(options.maxNodes))
+	}
+	if options.maxEdges > 0 {
+		values.Set("maxEdges", strconv.Itoa(options.maxEdges))
 	}
 	if len(options.terminalNodeKinds) > 0 {
 		values.Set("terminalKinds", joinNodeKinds(options.terminalNodeKinds))

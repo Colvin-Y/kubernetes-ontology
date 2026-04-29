@@ -36,6 +36,10 @@ The response always includes:
 ### Supported phase-1 entry kinds
 - `Pod`
 - `Workload`
+- `PVC`
+- `PV`
+- `StorageClass`
+- `CSIDriver`
 
 ## Response shape
 
@@ -46,6 +50,20 @@ The response always includes:
   "edges": [...],
   "collectedAt": "...",
   "explanation": [...],
+  "warnings": [],
+  "partial": false,
+  "degradedSources": [],
+  "budgets": {
+    "maxDepth": 2,
+    "storageMaxDepth": 5,
+    "maxNodes": 200,
+    "maxEdges": 400,
+    "nodeCount": 12,
+    "edgeCount": 18,
+    "truncated": false
+  },
+  "rankedEvidence": [],
+  "conflicts": [],
   "nodeCount": 12,
   "edgeCount": 18,
   "freshness": {
@@ -63,6 +81,22 @@ The response always includes:
 may ignore them. Agents should use `freshness.ready`, `freshness.lastRefreshAt`,
 and graph counts to decide whether to retry, warn the user, or proceed with
 best-effort reasoning.
+
+`warnings`, `partial`, `degradedSources`, `budgets`, `rankedEvidence`, and
+`conflicts` are additive diagnostic metadata. Agents should read them before
+forming conclusions:
+
+- `partial=true` means the graph was intentionally truncated or collected from
+  degraded inputs. Do not claim completeness.
+- `budgets.truncated=true` names concrete limits through
+  `budgets.truncationReasons`.
+- `warnings` contains machine-readable caveats and next actions when known.
+- `degradedSources` describes Kubernetes sources that were forbidden,
+  unavailable, or partial.
+- `rankedEvidence` provides ordered evidence, currently starting with Event
+  evidence derived from the returned graph slice.
+- `conflicts` preserves contradictory evidence instead of selecting a silent
+  winner.
 
 Server error responses keep the historical `error` string and add structured
 fields:
@@ -205,6 +239,15 @@ This means a response may go deeper along storage edges than along unrelated top
 
 Agents should not assume a single uniform BFS depth across all returned paths.
 
+### `maxNodes` and `maxEdges`
+Hard caps on the returned diagnostic graph slice. When either cap is hit, the
+response sets `partial=true`, `budgets.truncated=true`, and includes a
+`diagnostic_budget_exceeded` warning.
+
+The default caps are intentionally conservative for in-memory operation. Agents
+may ask the user to narrow namespace/depth first, then raise caps only when the
+larger graph is needed.
+
 ### `terminalNodeKinds`
 Boundary node kinds that are included in the response but are not used as
 another traversal frontier.
@@ -244,6 +287,14 @@ For example:
 - helpful human-readable narration
 
 It should not be used as the only signal for graph facts already present in nodes/edges.
+
+### Step 5: Honor partial and ranked evidence fields
+Before writing a diagnosis:
+
+- check `partial`, `warnings`, and `degradedSources`
+- inspect `rankedEvidence` before unranked `explanation`
+- mention `conflicts` directly instead of resolving them silently
+- include budget truncation in the answer when `budgets.truncated=true`
 
 ## Phase-1 examples of valid AI conclusions
 
@@ -318,6 +369,20 @@ Diagnose a pod or workload:
 ./bin/kubernetes-ontology --server "http://127.0.0.1:18080" --diagnose-workload --namespace default --name my-deployment
 ```
 
+Constrain or expand diagnostic graph budgets explicitly:
+
+```bash
+./bin/kubernetes-ontology \
+  --server "http://127.0.0.1:18080" \
+  --diagnose-pod \
+  --namespace default \
+  --name my-pod \
+  --max-depth 2 \
+  --storage-max-depth 5 \
+  --max-nodes 200 \
+  --max-edges 400
+```
+
 List filtered relations:
 
 ```bash
@@ -337,5 +402,7 @@ Post-MVP backend changes must preserve:
 - provenance meaning
 - policy meaning
 - top-level response shape
+- additive diagnostic metadata semantics for `partial`, `warnings`, `budgets`,
+  `rankedEvidence`, `degradedSources`, and `conflicts`
 
 If any of those change, downstream AI consumers should treat it as a contract version change.

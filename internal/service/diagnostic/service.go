@@ -3,6 +3,9 @@ package diagnostic
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/Colvin-Y/kubernetes-ontology/internal/api"
@@ -14,6 +17,12 @@ type Service struct {
 	kernel *graph.Kernel
 }
 
+const (
+	DefaultDiagnosticMaxNodes = 200
+	DefaultDiagnosticMaxEdges = 400
+	MaxRankedEvidence         = 20
+)
+
 func NewService(kernel *graph.Kernel) *Service {
 	return &Service{kernel: kernel}
 }
@@ -22,6 +31,8 @@ func DefaultExpansionPolicy() api.ExpansionPolicy {
 	return api.ExpansionPolicy{
 		MaxDepth:               2,
 		StorageMaxDepth:        5,
+		MaxNodes:               DefaultDiagnosticMaxNodes,
+		MaxEdges:               DefaultDiagnosticMaxEdges,
 		TerminalNodeKinds:      DefaultTerminalNodeKinds(),
 		IncludeSiblingPods:     true,
 		IncludeRBAC:            true,
@@ -65,6 +76,7 @@ func (s *Service) GetDiagnosticSubgraphContext(ctx context.Context, entry api.En
 	if policy.StorageMaxDepth <= 0 {
 		policy.StorageMaxDepth = policy.MaxDepth
 	}
+	budget := diagnosticBudget(policy)
 
 	rootID := model.CanonicalID(entry.CanonicalID)
 	rootNode, ok := s.kernel.GetNode(rootID)
@@ -76,6 +88,7 @@ func (s *Service) GetDiagnosticSubgraphContext(ctx context.Context, entry api.En
 	edges := make([]api.DiagnosticEdge, 0)
 	seenNodes := map[string]struct{}{rootNode.ID.String(): {}}
 	seenEdges := map[string]struct{}{}
+	truncationReasons := map[string]struct{}{}
 	frontier := []model.CanonicalID{rootID}
 	maxTraversalDepth := policy.MaxDepth
 	if policy.IncludeStorage && policy.StorageMaxDepth > maxTraversalDepth {
@@ -103,10 +116,7 @@ func (s *Service) GetDiagnosticSubgraphContext(ctx context.Context, entry api.En
 				if !s.shouldTraverseFrom(current, currentNode, currentOK, rootNode, edge, depth, policy) {
 					continue
 				}
-				if _, seen := seenEdges[edge.Key()]; !seen {
-					edges = append(edges, toAPIEdge(edge))
-					seenEdges[edge.Key()] = struct{}{}
-				}
+				newNodes := make([]model.Node, 0, 2)
 				for _, nodeID := range []model.CanonicalID{edge.From, edge.To} {
 					if _, seen := seenNodes[nodeID.String()]; seen {
 						continue
@@ -115,9 +125,24 @@ func (s *Service) GetDiagnosticSubgraphContext(ctx context.Context, entry api.En
 					if !ok {
 						continue
 					}
+					newNodes = append(newNodes, node)
+				}
+				if len(nodes)+len(newNodes) > budget.MaxNodes {
+					truncationReasons["maxNodes"] = struct{}{}
+					continue
+				}
+				if _, seen := seenEdges[edge.Key()]; !seen {
+					if len(edges) >= budget.MaxEdges {
+						truncationReasons["maxEdges"] = struct{}{}
+						continue
+					}
+					edges = append(edges, toAPIEdge(edge))
+					seenEdges[edge.Key()] = struct{}{}
+				}
+				for _, node := range newNodes {
 					nodes = append(nodes, toAPINode(node))
-					seenNodes[nodeID.String()] = struct{}{}
-					nextFrontier = append(nextFrontier, nodeID)
+					seenNodes[node.ID.String()] = struct{}{}
+					nextFrontier = append(nextFrontier, node.ID)
 				}
 			}
 		}
@@ -125,13 +150,21 @@ func (s *Service) GetDiagnosticSubgraphContext(ctx context.Context, entry api.En
 	}
 
 	now := time.Now().UTC()
+	budget.NodeCount = len(nodes)
+	budget.EdgeCount = len(edges)
+	budget.TruncationReasons = sortedReasons(truncationReasons)
+	budget.Truncated = len(budget.TruncationReasons) > 0
 	explanations := summarizeEvidence(nodes)
 	return api.DiagnosticSubgraph{
-		Entry:       entry,
-		Nodes:       nodes,
-		Edges:       edges,
-		CollectedAt: &now,
-		Explanation: explanations,
+		Entry:          entry,
+		Nodes:          nodes,
+		Edges:          edges,
+		CollectedAt:    &now,
+		Explanation:    explanations,
+		Warnings:       diagnosticWarnings(budget),
+		Partial:        budget.Truncated,
+		Budgets:        budget,
+		RankedEvidence: rankEvidence(nodes),
 	}, nil
 }
 
@@ -217,6 +250,105 @@ func summarizeEvidence(nodes []api.DiagnosticNode) []string {
 		}
 	}
 	return explanations
+}
+
+func diagnosticBudget(policy api.ExpansionPolicy) api.DiagnosticBudget {
+	maxNodes := policy.MaxNodes
+	if maxNodes <= 0 {
+		maxNodes = DefaultDiagnosticMaxNodes
+	}
+	if maxNodes < 1 {
+		maxNodes = 1
+	}
+	maxEdges := policy.MaxEdges
+	if maxEdges <= 0 {
+		maxEdges = DefaultDiagnosticMaxEdges
+	}
+	return api.DiagnosticBudget{
+		MaxDepth:        policy.MaxDepth,
+		StorageMaxDepth: policy.StorageMaxDepth,
+		MaxNodes:        maxNodes,
+		MaxEdges:        maxEdges,
+	}
+}
+
+func sortedReasons(reasons map[string]struct{}) []string {
+	if len(reasons) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(reasons))
+	for reason := range reasons {
+		out = append(out, reason)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func diagnosticWarnings(budget api.DiagnosticBudget) []api.DiagnosticWarning {
+	if !budget.Truncated {
+		return nil
+	}
+	return []api.DiagnosticWarning{{
+		Code:       "diagnostic_budget_exceeded",
+		Severity:   "warning",
+		Message:    fmt.Sprintf("diagnostic graph was truncated by budget: %s", strings.Join(budget.TruncationReasons, ",")),
+		Source:     "diagnostic",
+		NextAction: "rerun with a narrower namespace/depth or raise --max-nodes/--max-edges",
+	}}
+}
+
+func rankEvidence(nodes []api.DiagnosticNode) []api.RankedEvidence {
+	items := make([]api.RankedEvidence, 0)
+	for _, node := range nodes {
+		if node.Kind != api.NodeKindEvent {
+			continue
+		}
+		reason, _ := node.Attributes["reason"].(string)
+		message, _ := node.Attributes["message"].(string)
+		if reason == "" && message == "" {
+			continue
+		}
+		severity, score := classifyEventEvidence(reason, message)
+		items = append(items, api.RankedEvidence{
+			Source:     "event",
+			NodeID:     node.CanonicalID,
+			Kind:       string(node.Kind),
+			Severity:   severity,
+			Reason:     reason,
+			Message:    message,
+			Confidence: "observed",
+			Score:      score,
+		})
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].Score != items[j].Score {
+			return items[i].Score > items[j].Score
+		}
+		if items[i].Reason != items[j].Reason {
+			return items[i].Reason < items[j].Reason
+		}
+		return items[i].NodeID < items[j].NodeID
+	})
+	if len(items) > MaxRankedEvidence {
+		items = items[:MaxRankedEvidence]
+	}
+	for i := range items {
+		items[i].Rank = i + 1
+	}
+	return items
+}
+
+func classifyEventEvidence(reason, message string) (string, float64) {
+	text := strings.ToLower(reason + " " + message)
+	for _, token := range []string{"fail", "error", "backoff", "forbidden", "denied", "timeout", "unhealthy", "invalid"} {
+		if strings.Contains(text, token) {
+			return "warning", 90
+		}
+	}
+	if reason != "" || message != "" {
+		return "info", 50
+	}
+	return "unknown", 0
 }
 
 func shouldTraverse(kind model.EdgeKind, depth int, policy api.ExpansionPolicy) bool {
