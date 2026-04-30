@@ -16,7 +16,9 @@ Recommended reading order:
 4. `kubernetes-semantic-kernel-evolution.md` gives the long-term architecture.
 5. `helm-upgrade-failure-user-story.md` standardizes the Helm upgrade failure
    scenario where the user no longer has Helm CLI output.
-6. `continuous-runtime-technical-design.md` and
+6. `incident-context-pack-v1-plan.md` records the scoped implementation plan for
+   the first evidence-first incident pack.
+7. `continuous-runtime-technical-design.md` and
    `continuous-runtime-progress-snapshot.md` capture runtime design history.
 
 Detailed research notes are kept under `research/` so the design rationale and

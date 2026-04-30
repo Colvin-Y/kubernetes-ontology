@@ -1,0 +1,881 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>kubernetes-ontology - Kubernetes evidence graph for diagnostics</title>
+  <meta name="description" content="kubernetes-ontology turns Kubernetes objects into a read-only evidence graph for diagnostics, topology exploration, and AI-agent workflows.">
+  <meta property="og:title" content="kubernetes-ontology">
+  <meta property="og:description" content="A read-only Kubernetes topology service for diagnostics, graph exploration, and AI-agent workflows.">
+  <meta property="og:image" content="/docs/assets/image-pull-demo.en.gif">
+  <meta name="theme-color" content="#05070a">
+  <style>
+    :root {
+      --bg: #05070a;
+      --ink: #f8fafc;
+      --text: #d9e2ee;
+      --muted: #9aa8b6;
+      --line: rgba(232, 240, 248, .14);
+      --panel: rgba(9, 14, 18, .84);
+      --panel-strong: #101820;
+      --cyan: #34d3ee;
+      --green: #56f0a7;
+      --amber: #f7c948;
+      --pink: #ff7ab6;
+      --red: #ff6b6b;
+      --code: #071015;
+      --shadow: rgba(0, 0, 0, .45);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      background: var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+      overflow-x: hidden;
+    }
+
+    img {
+      display: block;
+      max-width: 100%;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    .site-nav {
+      position: fixed;
+      top: 0;
+      right: 0;
+      left: 0;
+      z-index: 20;
+      border-bottom: 1px solid rgba(255, 255, 255, .08);
+      background: rgba(5, 7, 10, .72);
+      backdrop-filter: blur(18px);
+    }
+
+    .nav-inner {
+      width: min(1180px, calc(100% - 40px));
+      min-height: 64px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--ink);
+      font-weight: 750;
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      border: 1px solid rgba(52, 211, 238, .5);
+      border-radius: 6px;
+      background:
+        linear-gradient(135deg, rgba(52, 211, 238, .95), rgba(86, 240, 167, .78) 52%, rgba(247, 201, 72, .8));
+      box-shadow: 0 0 28px rgba(52, 211, 238, .26);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .nav-links a {
+      min-height: 36px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .nav-links a:hover {
+      color: var(--ink);
+      background: rgba(255, 255, 255, .07);
+    }
+
+    .hero {
+      position: relative;
+      min-height: 86vh;
+      display: flex;
+      align-items: flex-end;
+      overflow: hidden;
+      isolation: isolate;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero-media {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: .58;
+      filter: saturate(1.08) contrast(1.08);
+      z-index: -3;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      background:
+        linear-gradient(90deg, rgba(5, 7, 10, .96) 0%, rgba(5, 7, 10, .78) 34%, rgba(5, 7, 10, .45) 72%, rgba(5, 7, 10, .72) 100%),
+        linear-gradient(180deg, rgba(5, 7, 10, .5) 0%, rgba(5, 7, 10, .24) 45%, rgba(5, 7, 10, .96) 100%);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      opacity: .38;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, .08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, .08) 1px, transparent 1px);
+      background-size: 52px 52px;
+      mask-image: linear-gradient(180deg, transparent 0%, #000 28%, #000 84%, transparent 100%);
+    }
+
+    .hero-inner {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 128px 0 58px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 760;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 18px rgba(86, 240, 167, .65);
+    }
+
+    h1 {
+      max-width: 860px;
+      margin: 0;
+      color: var(--ink);
+      font-size: 74px;
+      line-height: .94;
+      font-weight: 830;
+      letter-spacing: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .hero-copy {
+      max-width: 720px;
+      margin: 24px 0 0;
+      color: #e7edf5;
+      font-size: 21px;
+      line-height: 1.5;
+      overflow-wrap: break-word;
+    }
+
+    .mobile-break {
+      display: none;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 30px;
+    }
+
+    .button {
+      display: inline-flex;
+      min-height: 44px;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 15px;
+      border: 1px solid rgba(255, 255, 255, .18);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, .08);
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 720;
+      box-shadow: 0 16px 34px rgba(0, 0, 0, .25);
+    }
+
+    .button.primary {
+      border-color: rgba(86, 240, 167, .64);
+      background: var(--green);
+      color: #07100b;
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 255, 255, .36);
+    }
+
+    .proof-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 34px;
+      color: #edf5ff;
+    }
+
+    .proof-item {
+      min-height: 34px;
+      padding: 7px 10px;
+      border: 1px solid rgba(255, 255, 255, .16);
+      border-radius: 4px;
+      background: rgba(5, 7, 10, .58);
+      backdrop-filter: blur(12px);
+      font-size: 13px;
+    }
+
+    .proof-item strong {
+      color: var(--amber);
+      font-weight: 780;
+    }
+
+    main {
+      background:
+        linear-gradient(180deg, #05070a 0%, #08100e 22%, #090d12 46%, #05070a 100%);
+    }
+
+    .section {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-inner {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 76px 0;
+    }
+
+    .section-kicker {
+      margin: 0 0 12px;
+      color: var(--cyan);
+      font-size: 13px;
+      font-weight: 760;
+      text-transform: uppercase;
+    }
+
+    h2 {
+      max-width: 780px;
+      margin: 0;
+      color: var(--ink);
+      font-size: 42px;
+      line-height: 1.08;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .section-lede {
+      max-width: 740px;
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.6;
+    }
+
+    .capability-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 34px;
+    }
+
+    .card {
+      min-height: 250px;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, .03));
+      box-shadow: 0 24px 70px var(--shadow);
+    }
+
+    .card-number {
+      display: inline-flex;
+      width: 34px;
+      height: 34px;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255, 255, 255, .2);
+      border-radius: 6px;
+      color: var(--bg);
+      background: var(--cyan);
+      font-weight: 820;
+    }
+
+    .card:nth-child(2) .card-number {
+      background: var(--green);
+    }
+
+    .card:nth-child(3) .card-number {
+      background: var(--amber);
+    }
+
+    .card:nth-child(4) .card-number {
+      background: var(--pink);
+    }
+
+    h3 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 20px;
+      line-height: 1.2;
+      font-weight: 760;
+    }
+
+    .card p {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+      gap: 42px;
+      align-items: start;
+    }
+
+    .signal-list {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .signal-list li {
+      display: grid;
+      grid-template-columns: 12px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      padding: 18px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .signal-list li:first-child {
+      border-top: 1px solid var(--line);
+    }
+
+    .signal-list span {
+      width: 10px;
+      height: 10px;
+      margin-top: 7px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 18px rgba(52, 211, 238, .36);
+    }
+
+    .signal-list li:nth-child(2) span {
+      background: var(--green);
+      box-shadow: 0 0 18px rgba(86, 240, 167, .34);
+    }
+
+    .signal-list li:nth-child(3) span {
+      background: var(--amber);
+      box-shadow: 0 0 18px rgba(247, 201, 72, .28);
+    }
+
+    .signal-list li:nth-child(4) span {
+      background: var(--pink);
+      box-shadow: 0 0 18px rgba(255, 122, 182, .28);
+    }
+
+    .signal-title {
+      color: var(--ink);
+      font-weight: 750;
+    }
+
+    .signal-copy {
+      margin-top: 5px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .object-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-content: flex-start;
+      padding-top: 4px;
+    }
+
+    .chip {
+      min-height: 40px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: rgba(255, 255, 255, .05);
+      color: #e8eef7;
+      font-size: 15px;
+      font-weight: 680;
+    }
+
+    .chip:nth-child(4n + 1) {
+      border-color: rgba(52, 211, 238, .38);
+    }
+
+    .chip:nth-child(4n + 2) {
+      border-color: rgba(86, 240, 167, .34);
+    }
+
+    .chip:nth-child(4n + 3) {
+      border-color: rgba(247, 201, 72, .34);
+    }
+
+    .chip:nth-child(4n + 4) {
+      border-color: rgba(255, 122, 182, .34);
+    }
+
+    .workflow {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 34px;
+    }
+
+    .step {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      overflow: hidden;
+    }
+
+    .step-header {
+      display: flex;
+      min-height: 58px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .step-header b {
+      color: var(--ink);
+      font-size: 16px;
+    }
+
+    .step-header small {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    pre {
+      margin: 0;
+      min-height: 174px;
+      padding: 18px;
+      overflow: auto;
+      background: var(--code);
+      color: #dff9ff;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .viewer-band {
+      padding: 0;
+      background: #05070a;
+    }
+
+    .viewer-frame {
+      position: relative;
+      min-height: 420px;
+      overflow: hidden;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .viewer-frame img {
+      width: 100%;
+      height: 520px;
+      object-fit: cover;
+      opacity: .76;
+    }
+
+    .viewer-caption {
+      position: absolute;
+      right: 24px;
+      bottom: 24px;
+      left: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 18px;
+      padding-top: 92px;
+      color: var(--ink);
+      background: linear-gradient(180deg, transparent, rgba(5, 7, 10, .88));
+    }
+
+    .viewer-caption p {
+      max-width: 640px;
+      margin: 0;
+      color: #edf5ff;
+      font-size: 18px;
+      line-height: 1.5;
+    }
+
+    .footer {
+      background: #05070a;
+    }
+
+    .footer-inner {
+      width: min(1180px, calc(100% - 40px));
+      min-height: 96px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .footer-links a {
+      color: #dfe8f2;
+    }
+
+    @media (max-width: 980px) {
+      .nav-links {
+        display: none;
+      }
+
+      h1 {
+        font-size: 58px;
+      }
+
+      h2 {
+        font-size: 34px;
+      }
+
+      .capability-grid,
+      .workflow,
+      .split {
+        grid-template-columns: 1fr;
+      }
+
+      .card {
+        min-height: 0;
+      }
+
+      .viewer-frame img {
+        height: 420px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .nav-inner,
+      .hero-inner,
+      .section-inner,
+      .footer-inner {
+        width: min(calc(100% - 28px), 1180px);
+      }
+
+      .hero {
+        min-height: 88vh;
+      }
+
+      .hero-inner {
+        padding-bottom: 42px;
+      }
+
+      h1 {
+        font-size: 39px;
+        line-height: 1;
+      }
+
+      .mobile-break {
+        display: block;
+      }
+
+      .hero-copy {
+        max-width: 31ch;
+        font-size: 16px;
+      }
+
+      h2 {
+        font-size: 29px;
+      }
+
+      .section-inner {
+        padding: 58px 0;
+      }
+
+      .button {
+        width: 100%;
+      }
+
+      .workflow {
+        gap: 16px;
+      }
+
+      pre {
+        min-height: 0;
+        font-size: 12px;
+      }
+
+      .footer-inner {
+        padding: 24px 0;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav class="site-nav" aria-label="Primary">
+    <div class="nav-inner">
+      <a class="brand" href="#top" aria-label="kubernetes-ontology home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>kubernetes-ontology</span>
+      </a>
+      <div class="nav-links">
+        <a href="#capabilities">Capabilities</a>
+        <a href="#evidence">Evidence</a>
+        <a href="#start">Start</a>
+        <a href="https://github.com/Colvin-Y/kubernetes-ontology">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <header id="top" class="hero">
+    <img class="hero-media" src="/docs/assets/image-pull-demo.en.gif" alt="kubernetes-ontology topology viewer showing a diagnostic graph">
+    <div class="hero-inner">
+      <div class="eyebrow">Read-only Kubernetes evidence graph</div>
+      <h1>kubernetes-<br class="mobile-break">ontology</h1>
+      <p class="hero-copy">
+        Turn scattered Kubernetes objects into a live, typed topology for diagnostics,
+        graph exploration, and AI-agent workflows.
+      </p>
+      <div class="actions" aria-label="Primary actions">
+        <a class="button primary" href="https://github.com/Colvin-Y/kubernetes-ontology#quick-start">Quick start</a>
+        <a class="button" href="https://github.com/Colvin-Y/kubernetes-ontology">View on GitHub</a>
+        <a class="button" href="https://github.com/Colvin-Y/kubernetes-ontology/blob/main/AI_CONTRACT.md">AI contract</a>
+      </div>
+      <div class="proof-strip" aria-label="Project constraints">
+        <div class="proof-item"><strong>Zero</strong> workload mutations</div>
+        <div class="proof-item"><strong>No</strong> CRD requirement</div>
+        <div class="proof-item"><strong>Live</strong> informer refresh</div>
+        <div class="proof-item"><strong>Focused</strong> diagnostic subgraphs</div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="capabilities" class="section">
+      <div class="section-inner">
+        <p class="section-kicker">What it does</p>
+        <h2>Kubernetes troubleshooting, shaped as a graph instead of a pile of object dumps.</h2>
+        <p class="section-lede">
+          The daemon builds an in-memory ontology from Kubernetes resources, keeps it fresh,
+          and exposes stable CLI and HTTP queries for humans, tools, and agents.
+        </p>
+        <div class="capability-grid">
+          <article class="card">
+            <div class="card-number">1</div>
+            <h3>Recover topology</h3>
+            <p>Connect Pods, workloads, Services, Nodes, storage, images, RBAC, Events, webhooks, Helm releases, and charts.</p>
+          </article>
+          <article class="card">
+            <div class="card-number">2</div>
+            <h3>Diagnose by entrypoint</h3>
+            <p>Ask for a Pod or Workload and get a bounded evidence graph with warnings, budgets, conflicts, and ranked evidence.</p>
+          </article>
+          <article class="card">
+            <div class="card-number">3</div>
+            <h3>Serve stable queries</h3>
+            <p>Resolve entities, list relations, expand neighbors, and fetch diagnostic slices through CLI or HTTP APIs.</p>
+          </article>
+          <article class="card">
+            <div class="card-number">4</div>
+            <h3>Inspect visually</h3>
+            <p>Use the topology viewer to filter, expand, collapse, inspect provenance, and export the visible graph as JSON.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="evidence" class="section">
+      <div class="section-inner split">
+        <div>
+          <p class="section-kicker">Why it is different</p>
+          <h2>It gives agents and operators the same evidence surface.</h2>
+          <p class="section-lede">
+            Every conclusion stays tied to returned graph facts. That makes the output easier to inspect,
+            easier to bound, and safer to hand to downstream automation.
+          </p>
+        </div>
+        <ul class="signal-list">
+          <li>
+            <span aria-hidden="true"></span>
+            <div>
+              <div class="signal-title">Read-only by design</div>
+              <div class="signal-copy">No mutation of observed workloads, no controller install requirement, and no external graph database dependency.</div>
+            </div>
+          </li>
+          <li>
+            <span aria-hidden="true"></span>
+            <div>
+              <div class="signal-title">Fresh runtime graph</div>
+              <div class="signal-copy">Bootstrap from the Kubernetes API, then refresh with informers and polling fallback.</div>
+            </div>
+          </li>
+          <li>
+            <span aria-hidden="true"></span>
+            <div>
+              <div class="signal-title">Diagnostic boundaries</div>
+              <div class="signal-copy">Partial results, traversal budgets, degraded sources, and conflicts travel with the response.</div>
+            </div>
+          </li>
+          <li>
+            <span aria-hidden="true"></span>
+            <div>
+              <div class="signal-title">Agent-ready contract</div>
+              <div class="signal-copy">Stable diagnostic semantics let AI agents reason from evidence without crawling the cluster from scratch.</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-inner split">
+        <div>
+          <p class="section-kicker">What it sees</p>
+          <h2>One graph for the relationships that matter during an incident.</h2>
+        </div>
+        <div class="object-cloud" aria-label="Kubernetes objects and signals">
+          <span class="chip">Pods</span>
+          <span class="chip">Workloads</span>
+          <span class="chip">Services</span>
+          <span class="chip">Nodes</span>
+          <span class="chip">Secrets</span>
+          <span class="chip">ConfigMaps</span>
+          <span class="chip">ServiceAccounts</span>
+          <span class="chip">RBAC</span>
+          <span class="chip">PVCs</span>
+          <span class="chip">PVs</span>
+          <span class="chip">StorageClasses</span>
+          <span class="chip">CSI drivers</span>
+          <span class="chip">Images</span>
+          <span class="chip">Events</span>
+          <span class="chip">Admission webhooks</span>
+          <span class="chip">Helm provenance</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="start" class="section">
+      <div class="section-inner">
+        <p class="section-kicker">Start fast</p>
+        <h2>Run it as a local diagnostic companion or install it in-cluster with Helm.</h2>
+        <p class="section-lede">
+          The open-source MVP stays lightweight: release binaries, a Helm chart, a CLI, a daemon,
+          and a local topology viewer.
+        </p>
+        <div class="workflow">
+          <article class="step">
+            <div class="step-header">
+              <b>Install with Helm</b>
+              <small>In-cluster daemon</small>
+            </div>
+            <pre><code>export KO_VERSION=v0.1.5
+helm upgrade --install kubernetes-ontology \
+  ./charts/kubernetes-ontology \
+  --namespace kubernetes-ontology \
+  --create-namespace \
+  --set image.tag="${KO_VERSION}"</code></pre>
+          </article>
+          <article class="step">
+            <div class="step-header">
+              <b>Query the graph</b>
+              <small>CLI or HTTP</small>
+            </div>
+            <pre><code>kubectl -n kubernetes-ontology \
+  port-forward svc/kubernetes-ontology 18080:18080
+
+kubernetes-ontology \
+  --server http://127.0.0.1:18080 \
+  --status</code></pre>
+          </article>
+          <article class="step">
+            <div class="step-header">
+              <b>Diagnose a Pod</b>
+              <small>Evidence slice</small>
+            </div>
+            <pre><code>kubernetes-ontology \
+  --server http://127.0.0.1:18080 \
+  --diagnose-pod \
+  --namespace default \
+  --name my-pod \
+  --max-nodes 200</code></pre>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="viewer-band" aria-label="Topology viewer preview">
+      <div class="viewer-frame">
+        <img src="/docs/assets/image-pull-demo.en.gif" alt="Topology viewer graph with diagnostic signals">
+        <div class="viewer-caption">
+          <p>Real viewer capture: an ImagePullBackOff diagnostic graph with workload, service, config, identity, image, event, and storage evidence in one place.</p>
+          <a class="button" href="https://github.com/Colvin-Y/kubernetes-ontology/blob/main/QUICKSTART.md#topology-viewer">Open viewer guide</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div>Apache-2.0 open source. Built for bounded, inspectable Kubernetes diagnosis.</div>
+      <div class="footer-links">
+        <a href="https://github.com/Colvin-Y/kubernetes-ontology">GitHub</a>
+        <a href="https://github.com/Colvin-Y/kubernetes-ontology/blob/main/QUICKSTART.md">Quickstart</a>
+        <a href="https://github.com/Colvin-Y/kubernetes-ontology/blob/main/README.zh-CN.md">中文说明</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

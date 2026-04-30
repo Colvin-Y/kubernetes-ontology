@@ -25,6 +25,13 @@ const (
 	MaxDiagnosticEdges = 10000
 )
 
+const (
+	DiagnosticRecipePodIncident               = "pod-incident"
+	DiagnosticRecipeWorkloadIncident          = "workload-incident"
+	DiagnosticRecipeHelmOwnership             = "helm-ownership"
+	DiagnosticRecipeHelmUpgradeRuntimeFailure = "helm-upgrade-runtime-failure"
+)
+
 type RuntimeStatus struct {
 	Phase                       string
 	Cluster                     string
@@ -61,6 +68,7 @@ type DiagnosticOptions struct {
 	StorageMaxDepth     int
 	MaxNodes            int
 	MaxEdges            int
+	Recipe              string
 	TerminalNodeKinds   []api.NodeKind
 	ExpandTerminalNodes bool
 }
@@ -90,12 +98,78 @@ func ValidateDiagnosticOptions(options DiagnosticOptions) error {
 	if options.MaxEdges > MaxDiagnosticEdges {
 		return fmt.Errorf("%w: maxEdges must be <= %d", ErrInvalidDiagnosticQuery, MaxDiagnosticEdges)
 	}
+	if _, err := normalizeDiagnosticRecipe(options.Recipe); err != nil {
+		return err
+	}
 	for _, kind := range options.TerminalNodeKinds {
 		if _, ok := normalizeNodeKind(string(kind)); !ok {
 			return fmt.Errorf("%w: unsupported terminal kind %q", ErrInvalidDiagnosticQuery, kind)
 		}
 	}
 	return nil
+}
+
+func DiagnosticRecipeForEntry(entryKind api.NodeKind, raw string) (string, error) {
+	recipe, err := normalizeDiagnosticRecipe(raw)
+	if err != nil {
+		return "", err
+	}
+	if recipe != "" {
+		return recipe, nil
+	}
+	switch entryKind {
+	case api.NodeKindPod:
+		return DiagnosticRecipePodIncident, nil
+	case api.NodeKindWorkload:
+		return DiagnosticRecipeWorkloadIncident, nil
+	case api.NodeKindHelmRelease, api.NodeKindHelmChart:
+		return DiagnosticRecipeHelmOwnership, nil
+	default:
+		return "", nil
+	}
+}
+
+func normalizeDiagnosticRecipe(raw string) (string, error) {
+	key := strings.ToLower(strings.TrimSpace(raw))
+	key = strings.ReplaceAll(key, "_", "-")
+	key = strings.ReplaceAll(key, " ", "-")
+	switch key {
+	case "", "auto":
+		return "", nil
+	case "pod-incident", "podincident":
+		return DiagnosticRecipePodIncident, nil
+	case "workload-incident", "workloadincident":
+		return DiagnosticRecipeWorkloadIncident, nil
+	case "helm-ownership", "helmownership":
+		return DiagnosticRecipeHelmOwnership, nil
+	case "helm-upgrade-runtime-failure", "helmupgraderuntimefailure":
+		return DiagnosticRecipeHelmUpgradeRuntimeFailure, nil
+	default:
+		return "", fmt.Errorf("%w: unsupported diagnostic recipe %q", ErrInvalidDiagnosticQuery, raw)
+	}
+}
+
+func diagnosticLanesForRecipe(recipe string) []api.DiagnosticLane {
+	if recipe == "" {
+		return nil
+	}
+	return []api.DiagnosticLane{
+		{
+			ID:      "observed-runtime",
+			Title:   "Observed Runtime",
+			Summary: "Kubernetes objects, status, and Events visible now.",
+		},
+		{
+			ID:      "inferred-ownership",
+			Title:   "Inferred Ownership",
+			Summary: "Controller, selector, package, and metadata relationships inferred from the graph.",
+		},
+		{
+			ID:      "unavailable-input",
+			Title:   "Unavailable Input",
+			Summary: "Evidence outside the current Kubernetes object graph, such as missing Helm CLI output.",
+		},
+	}
 }
 
 func ParseTerminalNodeKinds(raw string) ([]api.NodeKind, bool, error) {
@@ -276,6 +350,10 @@ func (f *Facade) QueryDiagnosticSubgraphContext(ctx context.Context, entryKind, 
 	if !ok {
 		return api.DiagnosticSubgraph{}, fmt.Errorf("%w: unsupported entry kind %q", ErrInvalidDiagnosticQuery, entryKind)
 	}
+	recipe, err := DiagnosticRecipeForEntry(normalizedKind, options.Recipe)
+	if err != nil {
+		return api.DiagnosticSubgraph{}, err
+	}
 	entryID, err := f.FindEntryID(entryKind, namespace, name)
 	if err != nil {
 		return api.DiagnosticSubgraph{}, err
@@ -297,5 +375,10 @@ func (f *Facade) QueryDiagnosticSubgraphContext(ctx context.Context, entryKind, 
 	if len(f.builder.Evidence()) > 0 {
 		result.Explanation = append(result.Explanation, f.builder.Evidence()...)
 	}
+	if result.SchemaVersion == "" {
+		result.SchemaVersion = api.DiagnosticSchemaVersionV1Alpha1
+	}
+	result.Recipe = recipe
+	result.Lanes = diagnosticLanesForRecipe(recipe)
 	return result, nil
 }

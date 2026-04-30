@@ -548,9 +548,9 @@ For workloads:
 
 The diagnostic response is a focused subgraph intended for the MVP
 fault-diagnosis workflow and downstream AI-agent consumption.
-It includes additive `partial`, `warnings`, `budgets`, `rankedEvidence`,
-`degradedSources`, and `conflicts` fields so agents can tell bounded evidence
-from complete cluster truth.
+It includes additive `schemaVersion`, `recipe`, `lanes`, `partial`,
+`warnings`, `budgets`, `rankedEvidence`, `degradedSources`, and `conflicts`
+fields so agents can tell bounded evidence from complete cluster truth.
 When resources carry standard Helm metadata, diagnostic graphs can also include
 `HelmRelease` and `HelmChart` nodes connected by `managed_by_helm_release` and
 `installs_chart` edges. These edges are label evidence with confidence scores,
@@ -559,18 +559,26 @@ not exact Helm manifest membership.
 For a failed Helm upgrade where the user does not have CLI output, start from
 the release and inspect current cluster evidence:
 
+This Incident Context Pack flow requires a source build or a release after
+`v0.1.5`; published `v0.1.5` archives do not include `--recipe` or
+`--diagnose-helm-release`.
+
 ```bash
 kubernetes-ontology \
   --server "http://127.0.0.1:18080" \
   --diagnose-helm-release \
   --namespace default \
-  --name my-release
+  --name my-release \
+  --recipe helm-upgrade-runtime-failure
 ```
 
 The response can identify release-owned resources, rollout blockers, Events,
 and probable chart ownership. It cannot observe Helm template, values,
 repository, client, hook, or `--atomic` rollback errors unless the user provides
 the Helm output.
+
+An offline reference fixture for this story is available at
+`samples/helm-upgrade-failure/diagnostic-graph.json`.
 
 Pod-centered diagnostic queries keep shared nodes bounded by default. For
 example, a pod's `ServiceAccount` is shown, but the traversal does not continue
@@ -627,7 +635,9 @@ http://127.0.0.1:8765
 Click `Load topology` to read live entities and relations from `SERVER_URL`.
 Use `Auto refresh` for continuous polling, or load a focused pod/workload
 diagnostic graph from the same page. The Diagnostic Signals panel surfaces
-budget truncation, warnings, conflicts, degraded sources, and ranked evidence.
+recipe metadata, freshness, budget truncation, warnings, conflicts, degraded
+sources, and ranked evidence. Evidence and conflict entries focus the related
+node or edge when the fixture or daemon response includes IDs.
 
 Select a node and use `Expand 1 hop` to fetch the next layer from the daemon.
 The CLI equivalent is:

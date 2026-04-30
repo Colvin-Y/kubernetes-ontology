@@ -70,6 +70,33 @@ func TestHandlerServesStatusEntitiesAndDiagnostics(t *testing.T) {
 	}
 }
 
+func TestDiagnosticResponseIncludesIncidentMetadata(t *testing.T) {
+	server := httptest.NewServer(NewHandler(stubRuntime{diagnosticResult: api.DiagnosticSubgraph{
+		Recipe: query.DiagnosticRecipeHelmUpgradeRuntimeFailure,
+		Lanes: []api.DiagnosticLane{{
+			ID:    "observed-runtime",
+			Title: "Observed Runtime",
+		}},
+	}}))
+	defer server.Close()
+
+	var diagnostic struct {
+		SchemaVersion string               `json:"schemaVersion"`
+		Recipe        string               `json:"recipe"`
+		Lanes         []api.DiagnosticLane `json:"lanes"`
+	}
+	getJSON(t, server.URL+"/diagnostic/pod?namespace=default&name=frontend", &diagnostic)
+	if diagnostic.SchemaVersion != api.DiagnosticSchemaVersionV1Alpha1 {
+		t.Fatalf("expected schema version metadata, got %q", diagnostic.SchemaVersion)
+	}
+	if diagnostic.Recipe != query.DiagnosticRecipeHelmUpgradeRuntimeFailure {
+		t.Fatalf("expected recipe metadata, got %q", diagnostic.Recipe)
+	}
+	if len(diagnostic.Lanes) != 1 || diagnostic.Lanes[0].ID != "observed-runtime" {
+		t.Fatalf("expected lane metadata, got %#v", diagnostic.Lanes)
+	}
+}
+
 func TestDiagnosticValidatesRequiredParameters(t *testing.T) {
 	server := httptest.NewServer(NewHandler(stubRuntime{}))
 	defer server.Close()
@@ -247,6 +274,38 @@ func TestDiagnosticParsesBudgetOptions(t *testing.T) {
 	}
 }
 
+func TestDiagnosticParsesRecipeOption(t *testing.T) {
+	var got query.DiagnosticOptions
+	server := httptest.NewServer(NewHandler(stubRuntime{capturedOptions: &got}))
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + "/diagnostic/pod?namespace=default&name=frontend&recipe=helm-upgrade-runtime-failure")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+	if got.Recipe != "helm-upgrade-runtime-failure" {
+		t.Fatalf("expected recipe to be parsed, got %+v", got)
+	}
+}
+
+func TestDiagnosticRejectsInvalidRecipe(t *testing.T) {
+	server := httptest.NewServer(NewHandler(stubRuntime{}))
+	defer server.Close()
+
+	resp, err := http.Get(server.URL + "/diagnostic/pod?namespace=default&name=frontend&recipe=nope")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", resp.StatusCode)
+	}
+}
+
 func TestDiagnosticRejectsInvalidBudgetLimit(t *testing.T) {
 	server := httptest.NewServer(NewHandler(stubRuntime{}))
 	defer server.Close()
@@ -310,6 +369,7 @@ func getJSON(t *testing.T, url string, out any) {
 
 type stubRuntime struct {
 	diagnosticErr         error
+	diagnosticResult      api.DiagnosticSubgraph
 	waitForContext        bool
 	capturedOptions       *query.DiagnosticOptions
 	capturedEntryNodeKind *string
@@ -337,5 +397,5 @@ func (s stubRuntime) QueryDiagnosticSubgraph(ctx context.Context, entryKind, nam
 	if s.diagnosticErr != nil {
 		return api.DiagnosticSubgraph{}, s.diagnosticErr
 	}
-	return api.DiagnosticSubgraph{}, nil
+	return s.diagnosticResult, nil
 }

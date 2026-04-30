@@ -685,6 +685,7 @@
             <option>StorageClass</option>
             <option>CSIDriver</option>
             <option>HelmRelease</option>
+            <option>HelmChart</option>
           </select>
         </div>
         <div class="field">
@@ -695,6 +696,16 @@
       <div class="field">
         <label for="diagnosticName">Name</label>
         <input id="diagnosticName" type="text" placeholder="resource name" />
+      </div>
+      <div class="field">
+        <label for="diagnosticRecipe">Recipe</label>
+        <select id="diagnosticRecipe">
+          <option value="">Auto</option>
+          <option value="helm-upgrade-runtime-failure">Helm upgrade runtime failure</option>
+          <option value="helm-ownership">Helm ownership</option>
+          <option value="pod-incident">Pod incident</option>
+          <option value="workload-incident">Workload incident</option>
+        </select>
       </div>
       <div class="field">
         <label for="diagnosticTerminalKinds">Stop expanding at</label>
@@ -876,6 +887,12 @@
       'served_by_node_daemon',
       'scheduled_on',
       'selects_pod',
+      'managed_by',
+      'uses_config_map',
+      'uses_secret',
+      'uses_service_account',
+      'uses_image',
+      'bound_by_role_binding',
       'mounts_pvc',
       'bound_to_pv',
       'uses_storage_class',
@@ -898,7 +915,7 @@
     };
 
     const NAMESPACED_DIAGNOSTIC_KINDS = new Set(['Pod', 'Workload', 'PVC', 'HelmRelease']);
-    const CLUSTER_SCOPED_DIAGNOSTIC_KINDS = new Set(['PV', 'StorageClass', 'CSIDriver']);
+    const CLUSTER_SCOPED_DIAGNOSTIC_KINDS = new Set(['PV', 'StorageClass', 'CSIDriver', 'HelmChart']);
 
     const TOPOLOGY_FETCH_TIMEOUT_MS = 95000;
     const DIAGNOSTIC_FETCH_TIMEOUT_MS = 35000;
@@ -924,6 +941,7 @@
       diagnosticStorageMaxDepth: '5',
       diagnosticMaxNodes: '',
       diagnosticMaxEdges: '',
+      diagnosticRecipe: '',
       baseGraph: null,
       expansionLayers: [],
       lastLoader: null,
@@ -954,6 +972,7 @@
       diagnosticKind: document.getElementById('diagnosticKind'),
       diagnosticNamespace: document.getElementById('diagnosticNamespace'),
       diagnosticName: document.getElementById('diagnosticName'),
+      diagnosticRecipe: document.getElementById('diagnosticRecipe'),
       diagnosticTerminalKinds: document.getElementById('diagnosticTerminalKinds'),
       diagnosticMaxNodes: document.getElementById('diagnosticMaxNodes'),
       diagnosticMaxEdges: document.getElementById('diagnosticMaxEdges'),
@@ -1038,10 +1057,12 @@
       if (params.get('storageMaxDepth')) state.diagnosticStorageMaxDepth = params.get('storageMaxDepth');
       if (params.get('maxNodes')) state.diagnosticMaxNodes = params.get('maxNodes');
       if (params.get('maxEdges')) state.diagnosticMaxEdges = params.get('maxEdges');
+      if (params.get('recipe')) state.diagnosticRecipe = params.get('recipe');
       if (params.get('terminalKinds')) el.diagnosticTerminalKinds.value = params.get('terminalKinds');
       if (params.get('expandTerminalNodes')) el.expandTerminalNodes.checked = params.get('expandTerminalNodes') === 'true';
       el.diagnosticMaxNodes.value = state.diagnosticMaxNodes;
       el.diagnosticMaxEdges.value = state.diagnosticMaxEdges;
+      setDiagnosticRecipe(state.diagnosticRecipe);
       syncDiagnosticNamespaceControl();
       if (params.get('file')) loadFromPath(params.get('file')).catch(showLoadError);
       if (params.get('diagnostic') === '1') loadDiagnosticFromServer().catch(showLoadError);
@@ -1140,10 +1161,13 @@
       if (terminalKinds) params.set('terminalKinds', terminalKinds);
       const maxNodes = el.diagnosticMaxNodes.value.trim();
       const maxEdges = el.diagnosticMaxEdges.value.trim();
+      const recipe = el.diagnosticRecipe.value.trim();
       state.diagnosticMaxNodes = maxNodes;
       state.diagnosticMaxEdges = maxEdges;
+      state.diagnosticRecipe = recipe;
       if (maxNodes) params.set('maxNodes', maxNodes);
       if (maxEdges) params.set('maxEdges', maxEdges);
+      if (recipe) params.set('recipe', recipe);
       if (el.expandTerminalNodes.checked) params.set('expandTerminalNodes', 'true');
       state.lastLoader = loadDiagnosticFromServer;
       setBusy(true);
@@ -1264,6 +1288,12 @@
       const option = Array.from(el.diagnosticKind.options).find((item) => item.value.toLowerCase() === normalized);
       if (option) el.diagnosticKind.value = option.value;
       syncDiagnosticNamespaceControl();
+    }
+
+    function setDiagnosticRecipe(value) {
+      const normalized = String(value || '').toLowerCase();
+      const option = Array.from(el.diagnosticRecipe.options).find((item) => item.value.toLowerCase() === normalized);
+      if (option) el.diagnosticRecipe.value = option.value;
     }
 
     function syncDiagnosticNamespaceControl() {
@@ -1519,7 +1549,8 @@
           rankedEvidence: [],
           conflicts: [],
           partial: false,
-          budgets: {}
+          budgets: {},
+          freshness: raw.entities?.freshness || raw.relations?.freshness || {}
         };
       }
 
@@ -1536,6 +1567,9 @@
       return {
         source: sourceLabel,
         mode: 'diagnostic',
+        schemaVersion: raw?.schemaVersion || '',
+        recipe: raw?.recipe || '',
+        lanes: raw?.lanes || [],
         entry: raw?.entry || {},
         nodes,
         edges,
@@ -1820,10 +1854,23 @@
       const conflicts = graph.conflicts || [];
       const evidence = graph.rankedEvidence || [];
       const budget = graph.budgets || {};
+      const freshness = graph.freshness || {};
       const hasBudget = budget.maxNodes || budget.maxEdges || budget.truncated;
-      if (!warnings.length && !degraded.length && !conflicts.length && !evidence.length && !graph.partial && !hasBudget) {
+      const hasFreshness = freshness.phase || freshness.lastRefreshAt || typeof freshness.ready === 'boolean';
+      const hasRecipe = graph.recipe || (graph.lanes || []).length;
+      if (!warnings.length && !degraded.length && !conflicts.length && !evidence.length && !graph.partial && !hasBudget && !hasFreshness && !hasRecipe) {
         el.diagnosticSignals.innerHTML = '<div class="muted">No diagnostic metadata.</div>';
         return;
+      }
+      if (graph.recipe) {
+        const laneText = (graph.lanes || []).map((lane) => lane.title || lane.id).filter(Boolean).join(' / ');
+        appendSignal('Recipe', graph.recipe, laneText);
+      }
+      if (hasFreshness) {
+        appendSignal('Freshness', freshnessSummary(freshness), [
+          freshness.lastRefreshAt ? `refreshed ${freshness.lastRefreshAt}` : '',
+          freshness.lastStrategy ? `strategy ${freshness.lastStrategy}` : ''
+        ].filter(Boolean).join(' - '));
       }
       if (graph.partial || hasBudget) {
         const reasons = (budget.truncationReasons || []).join(', ');
@@ -1841,23 +1888,56 @@
         appendSignal(source.source || 'degraded source', [source.status, source.reason, source.message].filter(Boolean).join(' - '), source.nextAction || '');
       }
       for (const conflict of conflicts.slice(0, 6)) {
-        appendSignal(conflict.code || 'conflict', conflict.message || '', conflict.confidence || '');
+        appendSignal(conflict.code || 'conflict', conflict.message || '', conflict.confidence || '', {
+          nodeId: (conflict.nodeIds || [])[0],
+          edgeKey: (conflict.edgeKeys || [])[0]
+        });
       }
       for (const item of evidence.slice(0, 8)) {
         const title = `#${item.rank || '?'} ${item.reason || item.kind || item.source || 'evidence'}`;
-        appendSignal(title, item.message || item.nodeId || '', [item.severity, item.confidence].filter(Boolean).join(' - '));
+        appendSignal(title, item.message || item.nodeId || '', [item.severity, item.confidence].filter(Boolean).join(' - '), {
+          nodeId: item.nodeId,
+          edgeKey: item.edgeKey
+        });
       }
     }
 
-    function appendSignal(title, body, footer = '') {
+    function appendSignal(title, body, footer = '', target = {}) {
       const div = document.createElement('div');
-      div.className = 'item';
+      const clickable = target.nodeId || target.edgeKey;
+      div.className = clickable ? 'item clickable' : 'item';
       div.innerHTML = `
         <div class="item-title">${escapeHtml(title)}</div>
         ${body ? `<div class="item-subtitle">${escapeHtml(body)}</div>` : ''}
         ${footer ? `<div class="muted" style="margin-top:4px">${escapeHtml(footer)}</div>` : ''}
       `;
+      if (clickable) {
+        div.addEventListener('click', () => selectSignalTarget(target));
+      }
       el.diagnosticSignals.appendChild(div);
+    }
+
+    function freshnessSummary(freshness) {
+      const ready = typeof freshness.ready === 'boolean' ? (freshness.ready ? 'ready' : 'not ready') : '';
+      const phase = freshness.phase || '';
+      const graphSize = (freshness.nodeCount || freshness.edgeCount)
+        ? `graph ${freshness.nodeCount || 0} nodes / ${freshness.edgeCount || 0} edges`
+        : '';
+      return [ready, phase, graphSize].filter(Boolean).join(' - ');
+    }
+
+    function selectSignalTarget(target) {
+      if (target.nodeId && (state.normalized?.nodes || []).some((node) => node.canonicalId === target.nodeId)) {
+        state.selectedNodeId = target.nodeId;
+        state.selectedEdgeKey = null;
+        render();
+        return;
+      }
+      if (target.edgeKey && (state.normalized?.edges || []).some((edge) => edgeKey(edge) === target.edgeKey)) {
+        state.selectedNodeId = null;
+        state.selectedEdgeKey = target.edgeKey;
+        render();
+      }
     }
 
     function renderGraph(nodes, edges) {
@@ -2461,6 +2541,9 @@
 
     function graphForExport(graph) {
       return {
+        schemaVersion: graph.schemaVersion || '',
+        recipe: graph.recipe || '',
+        lanes: graph.lanes || [],
         source: graph.source || '',
         mode: graph.mode || 'diagnostic',
         status: graph.status || {},

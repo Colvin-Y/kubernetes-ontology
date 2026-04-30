@@ -52,6 +52,12 @@ This project turns those object reads into a graph:
 
 - `Pod`
 - `Workload`
+- `PVC`
+- `PV`
+- `StorageClass`
+- `CSIDriver`
+- `HelmRelease`
+- `HelmChart`
 
 ### Runtime
 
@@ -114,6 +120,10 @@ These are ownership hints from labels, not exact manifest membership.
 
 ### Helm Upgrade Failure Triage
 
+The Incident Context Pack recipe flags in this section are available from the
+current source branch and from releases after `v0.1.5`. Published `v0.1.5`
+archives do not include `--recipe` or `--diagnose-helm-release`.
+
 When a user only says "helm upgrade failed" and does not have the Helm CLI
 output, `kubernetes-ontology` can still diagnose the current cluster state for
 that release:
@@ -137,6 +147,21 @@ It also marks the missing Helm-side evidence explicitly:
 For rollout failures that reached the cluster, follow the release graph into
 the affected Workload or Pod diagnostic. For render/client failures, ask the
 user to paste the `helm upgrade` stderr or `helm status/history` output.
+
+Incident Context Pack v1 adds an optional recipe label for this workflow:
+
+```bash
+kubernetes-ontology \
+  --server "http://127.0.0.1:18080" \
+  --entry-kind Pod \
+  --namespace default \
+  --name bad-pod \
+  --recipe helm-upgrade-runtime-failure
+```
+
+The checked-in sample at `samples/helm-upgrade-failure/` can be opened in the
+viewer without a live cluster and demonstrates ranked evidence, freshness,
+budget metadata, Helm caveats, and clickable evidence references.
 
 ## Agent Onboarding
 
@@ -418,6 +443,8 @@ Diagnose a pod:
 
 Diagnose a Helm release after a failed upgrade:
 
+Requires a source build or a release after `v0.1.5`.
+
 ```bash
 ./bin/kubernetes-ontology \
   --server "http://127.0.0.1:18080" \
@@ -426,8 +453,9 @@ Diagnose a Helm release after a failed upgrade:
   --name my-release
 ```
 
-Diagnostic responses include additive `partial`, `warnings`, `budgets`,
-`rankedEvidence`, `degradedSources`, and `conflicts` fields. Agents should use
+Diagnostic responses include additive `schemaVersion`, `recipe`, `lanes`,
+`partial`, `warnings`, `budgets`, `rankedEvidence`, `degradedSources`, and
+`conflicts` fields. Agents should use
 those fields to distinguish bounded evidence from complete cluster truth.
 
 Expand one graph node:
@@ -476,6 +504,7 @@ The daemon exposes the current in-memory ontology database over HTTP:
 - `GET /relations?from=...&kind=scheduled_on`
 - `GET /neighbors?entityGlobalId=...&direction=out`
 - `GET /expand?entityGlobalId=...&depth=1`
+- `GET /diagnostic?kind=Pod&namespace=default&name=my-pod&recipe=pod-incident`
 - `GET /diagnostic/pod?namespace=default&name=my-pod&maxNodes=200&maxEdges=400`
 - `GET /diagnostic/workload?namespace=default&name=my-deployment`
 

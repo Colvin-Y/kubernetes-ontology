@@ -113,6 +113,95 @@ class VisualizeServerTest(unittest.TestCase):
             viewer.close()
             upstream.close()
 
+    def test_diagnostic_forwards_budget_and_recipe(self):
+        hits = []
+        upstream = running_server(make_upstream(hits=hits))
+        viewer = running_server(visualize_server.Handler)
+        try:
+            url = viewer.url + "/diagnostic?" + urllib.parse.urlencode({
+                "server": upstream.url,
+                "kind": "Pod",
+                "namespace": "default",
+                "name": "frontend",
+                "maxNodes": "25",
+                "maxEdges": "50",
+                "recipe": "helm-upgrade-runtime-failure",
+            })
+            body = urllib.request.urlopen(url).read()
+            self.assertTrue(json.loads(body))
+            parsed = urllib.parse.urlparse(hits[0])
+            qs = urllib.parse.parse_qs(parsed.query)
+            self.assertEqual(qs["maxNodes"][0], "25")
+            self.assertEqual(qs["maxEdges"][0], "50")
+            self.assertEqual(qs["recipe"][0], "helm-upgrade-runtime-failure")
+        finally:
+            viewer.close()
+            upstream.close()
+
+    def test_diagnostic_allows_helm_chart_without_namespace(self):
+        hits = []
+        upstream = running_server(make_upstream(hits=hits))
+        viewer = running_server(visualize_server.Handler)
+        try:
+            url = viewer.url + "/diagnostic?" + urllib.parse.urlencode({
+                "server": upstream.url,
+                "kind": "HelmChart",
+                "name": "checkout-2.0.0",
+            })
+            body = urllib.request.urlopen(url).read()
+            self.assertTrue(json.loads(body))
+            parsed = urllib.parse.urlparse(hits[0])
+            qs = urllib.parse.parse_qs(parsed.query)
+            self.assertEqual(qs["kind"][0], "HelmChart")
+            self.assertNotIn("namespace", qs)
+        finally:
+            viewer.close()
+            upstream.close()
+
+    def test_diagnostic_requires_namespace_for_helm_release(self):
+        hits = []
+        upstream = running_server(make_upstream(hits=hits))
+        viewer = running_server(visualize_server.Handler)
+        try:
+            url = viewer.url + "/diagnostic?" + urllib.parse.urlencode({
+                "server": upstream.url,
+                "kind": "HelmRelease",
+                "name": "checkout",
+            })
+            with self.assertRaises(urllib.error.HTTPError) as raised:
+                urllib.request.urlopen(url)
+            self.assertEqual(raised.exception.code, 400)
+            self.assertEqual(hits, [])
+        finally:
+            viewer.close()
+            upstream.close()
+
+    def test_diagnostic_preserves_structured_upstream_error_fields(self):
+        upstream = running_server(make_upstream(status=400, payload={
+            "error": "unsupported diagnostic recipe",
+            "code": "invalid_query",
+            "status": 400,
+            "retryable": False,
+            "source": "server",
+        }))
+        viewer = running_server(visualize_server.Handler)
+        try:
+            url = viewer.url + "/diagnostic?" + urllib.parse.urlencode({
+                "server": upstream.url,
+                "kind": "Pod",
+                "namespace": "default",
+                "name": "frontend",
+            })
+            with self.assertRaises(urllib.error.HTTPError) as raised:
+                urllib.request.urlopen(url)
+            self.assertEqual(raised.exception.code, 400)
+            payload = json.loads(raised.exception.read().decode())
+            self.assertEqual(payload["code"], "invalid_query")
+            self.assertEqual(payload["source"], "server")
+        finally:
+            viewer.close()
+            upstream.close()
+
     def test_diagnostic_timeout_returns_504(self):
         previous = visualize_server.UPSTREAM_TIMEOUT_SECONDS
         visualize_server.UPSTREAM_TIMEOUT_SECONDS = 0.05

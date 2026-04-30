@@ -17,6 +17,7 @@ MAX_DEPTH ?= 2
 STORAGE_MAX_DEPTH ?= 5
 MAX_NODES ?=
 MAX_EDGES ?=
+RECIPE ?=
 BOOTSTRAP_TIMEOUT ?= 2m
 OBSERVE_DURATION ?= 40s
 POLL_INTERVAL ?= 2s
@@ -39,12 +40,13 @@ OVERRIDE_ORIGINS := command line environment override
 make_arg = $(if $(filter $(OVERRIDE_ORIGINS),$(origin $(1))),--$(2) "$($(1))")
 make_context_namespaces_arg = $(if $(filter $(OVERRIDE_ORIGINS),$(origin CONTEXT_NAMESPACES) $(origin NAMESPACES)),--context-namespaces "$(CONTEXT_NAMESPACES)")
 make_diagnostic_budget_args = $(call make_arg,MAX_NODES,max-nodes) $(call make_arg,MAX_EDGES,max-edges)
+make_diagnostic_recipe_arg = $(call make_arg,RECIPE,recipe)
 CLI_CONFIG_OVERRIDES = $(call make_arg,KUBECONFIG,kubeconfig) $(call make_arg,CLUSTER,cluster) $(make_context_namespaces_arg) $(call make_arg,WORKLOAD_RESOURCES,workload-resources) $(call make_arg,CONTROLLER_RULES,controller-rules) $(call make_arg,BOOTSTRAP_TIMEOUT,bootstrap-timeout)
 DAEMON_CONFIG_OVERRIDES = $(CLI_CONFIG_OVERRIDES) $(call make_arg,SERVER_ADDR,addr) $(call make_arg,POLL_INTERVAL,poll-interval)
 CLI_CONFIG_ARGS = $(if $(CONFIG),--config "$(CONFIG)" $(CLI_CONFIG_OVERRIDES),--kubeconfig "$(KUBECONFIG)" --cluster "$(CLUSTER)" --context-namespaces "$(CONTEXT_NAMESPACES)" --workload-resources "$(WORKLOAD_RESOURCES)" --controller-rules "$(CONTROLLER_RULES)" --bootstrap-timeout "$(BOOTSTRAP_TIMEOUT)")
 DAEMON_CONFIG_ARGS = $(if $(CONFIG),--config "$(CONFIG)" $(DAEMON_CONFIG_OVERRIDES),--kubeconfig "$(KUBECONFIG)" --cluster "$(CLUSTER)" --context-namespaces "$(CONTEXT_NAMESPACES)" --workload-resources "$(WORKLOAD_RESOURCES)" --controller-rules "$(CONTROLLER_RULES)" --addr "$(SERVER_ADDR)" --bootstrap-timeout "$(BOOTSTRAP_TIMEOUT)" --poll-interval "$(POLL_INTERVAL)")
 
-.PHONY: build build-daemon build-viewer docker-build owl test verify ci ci-go ci-helm ci-binaries ci-client ci-visualize run serve status status-server list-entities-server get-entity-server list-relations-server neighbors-server expand-node-server collapse-node-graph observe-status diagnose-pod diagnose-workload diagnose-helm-release diagnose-pod-server diagnose-workload-server visualize visualize-go visualize-check live-check verify-live require-kubeconfig require-entry
+.PHONY: build build-daemon build-viewer docker-build owl test verify ci ci-go ci-helm ci-binaries ci-client ci-visualize run serve status status-server list-entities-server get-entity-server list-relations-server neighbors-server expand-node-server collapse-node-graph observe-status diagnose-pod diagnose-workload diagnose-helm-release diagnose-pod-server diagnose-workload-server diagnose-helm-release-server visualize visualize-go visualize-check live-check verify-live require-kubeconfig require-entry
 
 build:
 	mkdir -p bin
@@ -163,7 +165,7 @@ diagnose-pod: build require-kubeconfig require-entry
 	  --namespace "$(NAMESPACE)" \
 	  --name "$(NAME)" \
 	  --max-depth "$(MAX_DEPTH)" \
-	  --storage-max-depth "$(STORAGE_MAX_DEPTH)" $(make_diagnostic_budget_args)
+	  --storage-max-depth "$(STORAGE_MAX_DEPTH)" $(make_diagnostic_budget_args) $(make_diagnostic_recipe_arg)
 
 diagnose-workload: build require-kubeconfig require-entry
 	$(BINARY) \
@@ -172,7 +174,7 @@ diagnose-workload: build require-kubeconfig require-entry
 	  --namespace "$(NAMESPACE)" \
 	  --name "$(NAME)" \
 	  --max-depth "$(MAX_DEPTH)" \
-	  --storage-max-depth "$(STORAGE_MAX_DEPTH)" $(make_diagnostic_budget_args)
+	  --storage-max-depth "$(STORAGE_MAX_DEPTH)" $(make_diagnostic_budget_args) $(make_diagnostic_recipe_arg)
 
 diagnose-helm-release: build require-kubeconfig require-entry
 	$(BINARY) \
@@ -181,7 +183,7 @@ diagnose-helm-release: build require-kubeconfig require-entry
 	  --namespace "$(NAMESPACE)" \
 	  --name "$(NAME)" \
 	  --max-depth "$(MAX_DEPTH)" \
-	  --storage-max-depth "$(STORAGE_MAX_DEPTH)" $(make_diagnostic_budget_args)
+	  --storage-max-depth "$(STORAGE_MAX_DEPTH)" $(make_diagnostic_budget_args) $(make_diagnostic_recipe_arg)
 
 diagnose-pod-server: build require-entry
 	$(BINARY) \
@@ -190,7 +192,7 @@ diagnose-pod-server: build require-entry
 	  --namespace "$(NAMESPACE)" \
 	  --name "$(NAME)" \
 	  --max-depth "$(MAX_DEPTH)" \
-	  --storage-max-depth "$(STORAGE_MAX_DEPTH)" $(make_diagnostic_budget_args)
+	  --storage-max-depth "$(STORAGE_MAX_DEPTH)" $(make_diagnostic_budget_args) $(make_diagnostic_recipe_arg)
 
 diagnose-workload-server: build require-entry
 	$(BINARY) \
@@ -199,7 +201,16 @@ diagnose-workload-server: build require-entry
 	  --namespace "$(NAMESPACE)" \
 	  --name "$(NAME)" \
 	  --max-depth "$(MAX_DEPTH)" \
-	  --storage-max-depth "$(STORAGE_MAX_DEPTH)" $(make_diagnostic_budget_args)
+	  --storage-max-depth "$(STORAGE_MAX_DEPTH)" $(make_diagnostic_budget_args) $(make_diagnostic_recipe_arg)
+
+diagnose-helm-release-server: build require-entry
+	$(BINARY) \
+	  --server "$(SERVER_URL)" \
+	  --diagnose-helm-release \
+	  --namespace "$(NAMESPACE)" \
+	  --name "$(NAME)" \
+	  --max-depth "$(MAX_DEPTH)" \
+	  --storage-max-depth "$(STORAGE_MAX_DEPTH)" $(make_diagnostic_budget_args) $(make_diagnostic_recipe_arg)
 
 visualize:
 	@echo "Starting ontology viewer on http://$(VIEWER_HOST):$(VIEWER_PORT)"
