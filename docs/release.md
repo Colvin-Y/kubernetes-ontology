@@ -62,7 +62,17 @@ KUBECONFIG="${KO_KIND_KUBECONFIG}" make ci
 kubectl --kubeconfig "${KO_KIND_KUBECONFIG}" get nodes
 ```
 
-Then run the live diagnostic smoke tests against that same kubeconfig.
+Then run the automated in-cluster diagnostic e2e against that same kubeconfig:
+
+```bash
+docker build -t kubernetes-ontology:e2e .
+kind load docker-image kubernetes-ontology:e2e --name kind
+KIND_CLUSTER_NAME=kind bash scripts/ci/verify_kind_e2e.sh
+```
+
+The e2e installs the checked-in kind Helm storage sample, deploys the current
+Helm chart with the locally built image, and verifies CLI plus viewer diagnostic
+queries against the in-cluster daemon.
 
 Use semantic version tags:
 
@@ -78,8 +88,8 @@ Pushing the tag starts both workflows:
 - `.github/workflows/release.yml` creates a GitHub Release and uploads
   per-platform archives containing `kubernetes-ontology` (CLI),
   `kubernetes-ontologyd` (server), `kubernetes-ontology-viewer`, README files,
-  `QUICKSTART.md`, `CHANGELOG.md`, `AI_CONTRACT.md`, the local config example,
-  and a packaged Helm chart archive.
+  `QUICKSTART.md`, `CHANGELOG.md`, `AI_CONTRACT.md`, `LICENSE`, `NOTICE`,
+  `SECURITY.md`, the local config example, and a packaged Helm chart archive.
 - `.github/workflows/docker.yml` builds and pushes a multi-architecture image:
 
   ```text

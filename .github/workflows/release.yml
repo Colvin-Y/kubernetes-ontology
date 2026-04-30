@@ -55,7 +55,7 @@ jobs:
                 -ldflags="-s -w" \
                 -o "${work}/${cmd}${ext}" "./cmd/${cmd}"
             done
-            cp README.md README.zh-CN.md QUICKSTART.md CHANGELOG.md AI_CONTRACT.md LICENSE "${work}/"
+            cp README.md README.zh-CN.md QUICKSTART.md CHANGELOG.md AI_CONTRACT.md LICENSE NOTICE SECURITY.md "${work}/"
             mkdir -p "${work}/docs"
             cp -R docs/assets "${work}/docs/"
             mkdir -p "${work}/local"
