@@ -3,7 +3,7 @@ name: kubernetes-ontology-access
 description: Use this skill whenever a user wants to onboard, deploy, install, or operate kubernetes-ontology; set up its Helm chart, release CLI, daemon, or topology viewer; run Kubernetes topology queries; diagnose Pod or Workload failures with AI-agent workflows; or connect human visual troubleshooting to the CLI and HTTP API. This skill should trigger for requests about Kubernetes ontology onboarding, Helm deployment, topology query, diagnostic subgraph, ImagePullBackOff or storage/RBAC/Event graph troubleshooting, viewer usage, and agent integration.
 metadata:
   author: Colvin-Y
-  version: "0.1.5"
+  version: "0.1.6"
   license: Apache-2.0
   category: devops
   tags:
@@ -146,7 +146,7 @@ pull the published image. A GitHub Release archive contains:
 Download or transfer the archive for the selected version and platform:
 
 ```bash
-export KO_VERSION=v0.1.5
+export KO_VERSION=v0.1.6
 curl -LO "https://github.com/Colvin-Y/kubernetes-ontology/releases/download/${KO_VERSION}/kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
 tar -xzf "kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
 cd "kubernetes-ontology_${KO_VERSION}_linux_amd64"
@@ -221,7 +221,7 @@ project release they selected or the version already present in the repository
 docs. Do not invent a future version.
 
 ```bash
-export KO_VERSION=v0.1.5
+export KO_VERSION=v0.1.6
 export KO_IMAGE=ghcr.io/colvin-y/kubernetes-ontology
 
 helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \
@@ -466,9 +466,7 @@ kubernetes-ontology \
 
 Diagnose a Helm release after a failed upgrade:
 
-Use this Incident Context Pack flow only with a source build or a release after
-`v0.1.5`; published `v0.1.5` archives do not include `--recipe` or
-`--diagnose-helm-release`.
+Use this Incident Context Pack flow only with `v0.1.6` or newer.
 
 ```bash
 kubernetes-ontology \

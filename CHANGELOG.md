@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.1.6 - 2026-04-30
+
+### Added
+
+- Added the professional Cytoscape-backed topology renderer as the default
+  viewer experience while keeping the legacy SVG renderer available.
+- Added a deterministic kind Helm storage sample that covers Helm provenance,
+  PVC, PV, StorageClass, CSIDriver, local-path provisioner, Node, and Event
+  evidence.
+- Added refreshed English and Chinese documentation GIFs generated from the
+  real viewer.
+
+### Changed
+
+- Updated README, Quickstart, release guide, homepage, and access skill
+  examples for `v0.1.6`.
+- Packaged the vendored Cytoscape viewer asset in the embedded Go viewer and
+  the local Python visualizer.
+
+### Validation
+
+- Local CI, viewer checks, Helm template validation, and release packaging
+  checks are run before tagging.
+
 ## v0.1.5 - 2026-04-29
 
 ### Added

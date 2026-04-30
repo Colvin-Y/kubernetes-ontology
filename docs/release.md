@@ -67,11 +67,11 @@ Then run the live diagnostic smoke tests against that same kubeconfig.
 Use semantic version tags:
 
 ```bash
-git tag v0.1.5
-git push origin v0.1.5
+git tag v0.1.6
+git push origin v0.1.6
 ```
 
-Replace `v0.1.5` with the release tag you are publishing.
+Replace `v0.1.6` with the release tag you are publishing.
 
 Pushing the tag starts both workflows:
 
@@ -83,8 +83,8 @@ Pushing the tag starts both workflows:
 - `.github/workflows/docker.yml` builds and pushes a multi-architecture image:
 
   ```text
-  ghcr.io/colvin-y/kubernetes-ontology:v0.1.5
-  ghcr.io/colvin-y/kubernetes-ontology:0.1.5
+  ghcr.io/colvin-y/kubernetes-ontology:v0.1.6
+  ghcr.io/colvin-y/kubernetes-ontology:0.1.6
   ghcr.io/colvin-y/kubernetes-ontology:latest
   ```
 
@@ -103,23 +103,23 @@ gh run list --workflow Docker --limit 5
 Check the release assets:
 
 ```bash
-gh release view v0.1.5
+gh release view v0.1.6
 ```
 
 Inspect one binary archive and the Helm chart archive when release packaging
 changes:
 
 ```bash
-gh release download v0.1.5 --pattern 'kubernetes-ontology_v0.1.5_linux_amd64.tar.gz' --clobber
-tar -tzf kubernetes-ontology_v0.1.5_linux_amd64.tar.gz | grep -E 'kubernetes-ontologyd$|kubernetes-ontology$|QUICKSTART.md|local/kubernetes-ontology.yaml.example'
-gh release download v0.1.5 --pattern 'kubernetes-ontology-0.1.5.tgz' --clobber
-helm show chart kubernetes-ontology-0.1.5.tgz
+gh release download v0.1.6 --pattern 'kubernetes-ontology_v0.1.6_linux_amd64.tar.gz' --clobber
+tar -tzf kubernetes-ontology_v0.1.6_linux_amd64.tar.gz | grep -E 'kubernetes-ontologyd$|kubernetes-ontology$|QUICKSTART.md|local/kubernetes-ontology.yaml.example'
+gh release download v0.1.6 --pattern 'kubernetes-ontology-0.1.6.tgz' --clobber
+helm show chart kubernetes-ontology-0.1.6.tgz
 ```
 
 Pull the image:
 
 ```bash
-docker pull ghcr.io/colvin-y/kubernetes-ontology:v0.1.5
+docker pull ghcr.io/colvin-y/kubernetes-ontology:v0.1.6
 ```
 
 Deploy through Helm:
@@ -129,7 +129,7 @@ helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \
   --namespace kubernetes-ontology \
   --create-namespace \
   --set image.repository=ghcr.io/colvin-y/kubernetes-ontology \
-  --set image.tag=v0.1.5 \
+  --set image.tag=v0.1.6 \
   --set cluster=your-logical-cluster \
   --set contextNamespaces='{default,kube-system}'
 ```
