@@ -2,6 +2,8 @@ package api
 
 import "time"
 
+const DiagnosticSchemaVersionV1Alpha1 = "diagnostic.kubernetes-ontology.io/v1alpha1"
+
 type NodeKind string
 
 const (
@@ -171,6 +173,12 @@ type RankedEvidence struct {
 	Timestamp  *time.Time `json:"timestamp,omitempty"`
 }
 
+type DiagnosticLane struct {
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Summary string `json:"summary,omitempty"`
+}
+
 type DiagnosticConflict struct {
 	Code       string   `json:"code"`
 	Message    string   `json:"message"`
@@ -180,6 +188,9 @@ type DiagnosticConflict struct {
 }
 
 type DiagnosticSubgraph struct {
+	SchemaVersion   string               `json:"schemaVersion,omitempty"`
+	Recipe          string               `json:"recipe,omitempty"`
+	Lanes           []DiagnosticLane     `json:"lanes,omitempty"`
 	Entry           EntryRef             `json:"entry"`
 	Nodes           []DiagnosticNode     `json:"nodes"`
 	Edges           []DiagnosticEdge     `json:"edges"`

@@ -189,5 +189,5 @@ Next useful input:
 - Read Helm release Secrets when RBAC permits it and add exact manifest
   membership as a higher-confidence evidence tier.
 - Preserve release revision and status history as read-only graph nodes.
-- Add golden JSON fixtures for this story and render them in the topology
-  viewer as a reference incident path.
+- Expand the checked-in Incident Context Pack fixture into more rollout,
+  render, hook, and rollback variants.

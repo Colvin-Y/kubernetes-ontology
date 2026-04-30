@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Colvin-Y/kubernetes-ontology/schemas/diagnostic-subgraph.schema.json",
+  "title": "kubernetes-ontology DiagnosticSubgraph",
+  "type": "object",
+  "required": ["entry", "nodes", "edges", "partial", "budgets"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "description": "Additive diagnostic contract version.",
+      "const": "diagnostic.kubernetes-ontology.io/v1alpha1"
+    },
+    "recipe": {
+      "type": "string",
+      "description": "Optional product recipe label such as helm-upgrade-runtime-failure."
+    },
+    "lanes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "summary": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "entry": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string" },
+        "canonicalId": { "type": "string" },
+        "namespace": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["canonicalId", "kind"],
+        "properties": {
+          "canonicalId": { "type": "string" },
+          "kind": { "type": "string" },
+          "sourceKind": { "type": "string" },
+          "namespace": { "type": "string" },
+          "name": { "type": "string" },
+          "attributes": { "type": "object" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["from", "to", "kind", "provenance"],
+        "properties": {
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "kind": { "type": "string" },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "sourceType": { "type": "string" },
+              "state": { "type": "string" },
+              "resolver": { "type": "string" },
+              "confidence": { "type": "number" }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "warnings": { "type": "array" },
+    "degradedSources": { "type": "array" },
+    "rankedEvidence": { "type": "array" },
+    "conflicts": { "type": "array" },
+    "partial": { "type": "boolean" },
+    "budgets": {
+      "type": "object",
+      "required": ["maxDepth", "storageMaxDepth", "maxNodes", "maxEdges", "nodeCount", "edgeCount", "truncated"],
+      "additionalProperties": true
+    },
+    "freshness": { "type": "object" }
+  },
+  "additionalProperties": true
+}

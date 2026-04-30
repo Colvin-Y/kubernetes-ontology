@@ -248,14 +248,20 @@ func (h *handler) diagnostic(w http.ResponseWriter, r *http.Request, kind string
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), diagnosticRequestTimeout)
 	defer cancel()
-	result, err := h.runtime.QueryDiagnosticSubgraph(ctx, kind, namespace, name, query.DiagnosticOptions{
+	options := query.DiagnosticOptions{
 		MaxDepth:            maxDepth,
 		StorageMaxDepth:     storageMaxDepth,
 		MaxNodes:            maxNodes,
 		MaxEdges:            maxEdges,
+		Recipe:              r.URL.Query().Get("recipe"),
 		TerminalNodeKinds:   terminalNodeKinds,
 		ExpandTerminalNodes: expandTerminalNodes,
-	})
+	}
+	if err := query.ValidateDiagnosticOptions(options); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	result, err := h.runtime.QueryDiagnosticSubgraph(ctx, kind, namespace, name, options)
 	if err != nil {
 		writeDiagnosticError(w, err)
 		return

@@ -44,6 +44,7 @@ func main() {
 	var storageMaxDepth int
 	var maxNodes int
 	var maxEdges int
+	var diagnosticRecipe string
 	var expandTerminalNodes bool
 	var bootstrapTimeout time.Duration
 	var statusOnly bool
@@ -87,6 +88,7 @@ func main() {
 	flag.IntVar(&storageMaxDepth, "storage-max-depth", 5, "Maximum BFS depth for storage and CSI related traversal")
 	flag.IntVar(&maxNodes, "max-nodes", 0, "Maximum diagnostic nodes to return. Empty uses the built-in safe default.")
 	flag.IntVar(&maxEdges, "max-edges", 0, "Maximum diagnostic edges to return. Empty uses the built-in safe default.")
+	flag.StringVar(&diagnosticRecipe, "recipe", "", "Diagnostic recipe hint: pod-incident, workload-incident, helm-ownership, or helm-upgrade-runtime-failure")
 	flag.BoolVar(&expandTerminalNodes, "expand-terminal-nodes", false, "Traverse through diagnostic terminal nodes instead of stopping at them")
 	flag.DurationVar(&bootstrapTimeout, "bootstrap-timeout", 2*time.Minute, "Timeout for initial full snapshot bootstrap")
 	flag.BoolVar(&statusOnly, "status-only", false, "Bootstrap runtime and print runtime status instead of querying a diagnostic subgraph")
@@ -166,6 +168,22 @@ func main() {
 	if diagnoseHelmRelease {
 		entryKind = "HelmRelease"
 	}
+	if err := query.ValidateDiagnosticOptions(query.DiagnosticOptions{
+		MaxDepth:            maxDepth,
+		StorageMaxDepth:     storageMaxDepth,
+		MaxNodes:            maxNodes,
+		MaxEdges:            maxEdges,
+		Recipe:              diagnosticRecipe,
+		TerminalNodeKinds:   terminalNodeKinds,
+		ExpandTerminalNodes: expandTerminalNodes,
+	}); err != nil {
+		if machineErrors {
+			writeMachineError(os.Stderr, err)
+		} else {
+			fmt.Fprintf(os.Stderr, "validate diagnostic options: %v\n", err)
+		}
+		os.Exit(2)
+	}
 
 	if collapseNode {
 		if err := collapseGraphFile(graphFile, entityID); err != nil {
@@ -185,6 +203,7 @@ func main() {
 			storageMaxDepth:     storageMaxDepth,
 			maxNodes:            maxNodes,
 			maxEdges:            maxEdges,
+			diagnosticRecipe:    diagnosticRecipe,
 			terminalNodeKinds:   terminalNodeKinds,
 			expandTerminalNodes: expandTerminalNodes,
 			getEntity:           getEntity,
@@ -324,6 +343,7 @@ func main() {
 		StorageMaxDepth:     storageMaxDepth,
 		MaxNodes:            maxNodes,
 		MaxEdges:            maxEdges,
+		Recipe:              diagnosticRecipe,
 		TerminalNodeKinds:   terminalNodeKinds,
 		ExpandTerminalNodes: expandTerminalNodes,
 	})
@@ -492,6 +512,7 @@ type serverQueryOptions struct {
 	storageMaxDepth     int
 	maxNodes            int
 	maxEdges            int
+	diagnosticRecipe    string
 	terminalNodeKinds   []api.NodeKind
 	expandTerminalNodes bool
 	getEntity           bool
@@ -565,6 +586,9 @@ func queryServer(server string, options serverQueryOptions) error {
 	}
 	if options.maxEdges > 0 {
 		values.Set("maxEdges", strconv.Itoa(options.maxEdges))
+	}
+	if options.diagnosticRecipe != "" {
+		values.Set("recipe", options.diagnosticRecipe)
 	}
 	if len(options.terminalNodeKinds) > 0 {
 		values.Set("terminalKinds", joinNodeKinds(options.terminalNodeKinds))

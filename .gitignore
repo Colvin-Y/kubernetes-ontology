@@ -19,3 +19,4 @@ __pycache__/
 /local/*.out
 /.tmp-*
 /tmp/
+.vercel

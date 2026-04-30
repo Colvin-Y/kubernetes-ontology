@@ -84,6 +84,26 @@ func TestFacadeDiagnosticPolicy(t *testing.T) {
 	}
 }
 
+func TestDiagnosticRecipeForEntry(t *testing.T) {
+	recipe, err := DiagnosticRecipeForEntry(api.NodeKindPod, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if recipe != DiagnosticRecipePodIncident {
+		t.Fatalf("expected pod recipe, got %q", recipe)
+	}
+	recipe, err = DiagnosticRecipeForEntry(api.NodeKindHelmRelease, "HelmOwnership")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if recipe != DiagnosticRecipeHelmOwnership {
+		t.Fatalf("expected helm ownership alias, got %q", recipe)
+	}
+	if err := ValidateDiagnosticOptions(DiagnosticOptions{Recipe: "unknown-recipe"}); err == nil {
+		t.Fatal("expected invalid recipe to fail")
+	}
+}
+
 func TestParseTerminalNodeKinds(t *testing.T) {
 	kinds, disable, err := ParseTerminalNodeKinds("serviceaccount, Secret,ServiceAccount")
 	if err != nil {
@@ -193,6 +213,15 @@ func TestFacadeQueryDiagnosticSubgraph(t *testing.T) {
 	}
 	if len(result.Nodes) == 0 {
 		t.Fatal("expected diagnostic nodes")
+	}
+	if result.SchemaVersion != api.DiagnosticSchemaVersionV1Alpha1 {
+		t.Fatalf("expected schema version metadata, got %q", result.SchemaVersion)
+	}
+	if result.Recipe != DiagnosticRecipePodIncident {
+		t.Fatalf("expected default pod recipe, got %q", result.Recipe)
+	}
+	if len(result.Lanes) == 0 {
+		t.Fatal("expected recipe lanes")
 	}
 }
 

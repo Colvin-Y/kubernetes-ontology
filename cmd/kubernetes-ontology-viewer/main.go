@@ -26,6 +26,7 @@ const defaultOntologyServer = "http://127.0.0.1:18080"
 type upstreamError struct {
 	status  int
 	message string
+	payload any
 }
 
 func (e upstreamError) Error() string {
@@ -183,6 +184,9 @@ func (h *handler) serveDiagnostic(w http.ResponseWriter, r *http.Request) {
 	if maxEdges := first(q, "maxEdges", ""); maxEdges != "" {
 		params.Set("maxEdges", maxEdges)
 	}
+	if recipe := first(q, "recipe", ""); recipe != "" {
+		params.Set("recipe", recipe)
+	}
 	if terminalKinds := first(q, "terminalKinds", ""); terminalKinds != "" {
 		params.Set("terminalKinds", terminalKinds)
 	}
@@ -319,7 +323,16 @@ func (h *handler) fetchBytes(ctx context.Context, server, path string) ([]byte, 
 		return nil, err
 	}
 	if resp.StatusCode >= 400 {
-		return nil, upstreamError{status: resp.StatusCode, message: string(data)}
+		var payload any
+		message := strings.TrimSpace(string(data))
+		if len(data) > 0 && json.Unmarshal(data, &payload) == nil {
+			if values, ok := payload.(map[string]any); ok {
+				if errorText, ok := values["error"].(string); ok && errorText != "" {
+					message = errorText
+				}
+			}
+		}
+		return nil, upstreamError{status: resp.StatusCode, message: message, payload: payload}
 	}
 	return data, nil
 }
@@ -327,6 +340,10 @@ func (h *handler) fetchBytes(ctx context.Context, server, path string) ([]byte, 
 func (h *handler) writeUpstreamError(w http.ResponseWriter, err error) {
 	var upstream upstreamError
 	if errors.As(err, &upstream) {
+		if upstream.payload != nil {
+			writeJSON(w, upstream.payload, upstream.status)
+			return
+		}
 		writeJSON(w, map[string]string{"error": upstream.message}, upstream.status)
 		return
 	}

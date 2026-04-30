@@ -54,6 +54,9 @@ type DiagnosticSubgraphResponse struct {
 }
 
 func NewDiagnosticSubgraphResponse(result api.DiagnosticSubgraph, status RuntimeStatus) DiagnosticSubgraphResponse {
+	if result.SchemaVersion == "" {
+		result.SchemaVersion = api.DiagnosticSchemaVersionV1Alpha1
+	}
 	return DiagnosticSubgraphResponse{
 		DiagnosticSubgraph: result,
 		NodeCount:          len(result.Nodes),

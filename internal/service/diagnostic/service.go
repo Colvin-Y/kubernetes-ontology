@@ -158,6 +158,7 @@ func (s *Service) GetDiagnosticSubgraphContext(ctx context.Context, entry api.En
 	explanations := summarizeEvidence(nodes)
 	helmContext := analyzeHelmContext(nodes, edges)
 	return api.DiagnosticSubgraph{
+		SchemaVersion:   api.DiagnosticSchemaVersionV1Alpha1,
 		Entry:           entry,
 		Nodes:           nodes,
 		Edges:           edges,

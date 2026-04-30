@@ -45,8 +45,17 @@ The response always includes:
 
 ## Response shape
 
+Example recipe-scoped response:
+
 ```json
 {
+  "schemaVersion": "diagnostic.kubernetes-ontology.io/v1alpha1",
+  "recipe": "pod-incident",
+  "lanes": [
+    {"id": "observed-runtime", "title": "Observed Runtime"},
+    {"id": "inferred-ownership", "title": "Inferred Ownership"},
+    {"id": "unavailable-input", "title": "Unavailable Input"}
+  ],
   "entry": {...},
   "nodes": [...],
   "edges": [...],
@@ -79,10 +88,20 @@ The response always includes:
 }
 ```
 
+`schemaVersion` is always present on diagnostic responses emitted by the
+current facade/server response path. `recipe` and `lanes` are present when a
+diagnostic recipe is selected or inferred for the entry kind; generic future
+entry kinds may omit them, and agents must not hard-require them.
+
 `nodeCount`, `edgeCount`, and `freshness` are additive metadata. Older clients
 may ignore them. Agents should use `freshness.ready`, `freshness.lastRefreshAt`,
 and graph counts to decide whether to retry, warn the user, or proceed with
 best-effort reasoning.
+
+`recipe` and `lanes` are additive Incident Context Pack v1 metadata. `recipe`
+is a product label for how the graph should be interpreted; it does not change
+the underlying graph identity contract. v1 recipes are: `pod-incident`,
+`workload-incident`, `helm-ownership`, and `helm-upgrade-runtime-failure`.
 
 `warnings`, `partial`, `degradedSources`, `budgets`, `rankedEvidence`, and
 `conflicts` are additive diagnostic metadata. Agents should read them before
@@ -320,6 +339,8 @@ Before writing a diagnosis:
 - inspect `rankedEvidence` before unranked `explanation`
 - mention `conflicts` directly instead of resolving them silently
 - include budget truncation in the answer when `budgets.truncated=true`
+- use `recipe` and `lanes` to structure the answer, while keeping claims tied
+  to concrete nodes, edges, warnings, and evidence
 
 ## Phase-1 examples of valid AI conclusions
 
@@ -394,6 +415,17 @@ Diagnose a pod or workload:
 ./bin/kubernetes-ontology --server "http://127.0.0.1:18080" --diagnose-workload --namespace default --name my-deployment
 ```
 
+Diagnose a Helm upgrade failure when the user lacks Helm CLI output:
+
+```bash
+./bin/kubernetes-ontology \
+  --server "http://127.0.0.1:18080" \
+  --diagnose-helm-release \
+  --namespace default \
+  --name my-release \
+  --recipe helm-upgrade-runtime-failure
+```
+
 Constrain or expand diagnostic graph budgets explicitly:
 
 ```bash
@@ -429,5 +461,7 @@ Post-MVP backend changes must preserve:
 - top-level response shape
 - additive diagnostic metadata semantics for `partial`, `warnings`, `budgets`,
   `rankedEvidence`, `degradedSources`, and `conflicts`
+- `schemaVersion`, `recipe`, and `lanes` as additive Incident Context Pack
+  metadata
 
 If any of those change, downstream AI consumers should treat it as a contract version change.

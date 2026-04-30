@@ -369,8 +369,9 @@ kubernetes-ontology \
 ### Agent Reasoning Rules
 
 - Treat the response as a bounded evidence graph, not complete cluster truth.
-- Check `partial`, `warnings`, `degradedSources`, `budgets`,
-  `rankedEvidence`, and `conflicts` before forming a conclusion.
+- Check `schemaVersion`, `recipe`, `lanes`, `partial`, `warnings`,
+  `degradedSources`, `budgets`, `rankedEvidence`, and `conflicts` before
+  forming a conclusion.
 - Use `managed_by_helm_release` and `installs_chart` edges as Helm/package
   provenance when present, but describe them as label-derived evidence unless
   future exact manifest evidence is explicitly available.
@@ -465,12 +466,17 @@ kubernetes-ontology \
 
 Diagnose a Helm release after a failed upgrade:
 
+Use this Incident Context Pack flow only with a source build or a release after
+`v0.1.5`; published `v0.1.5` archives do not include `--recipe` or
+`--diagnose-helm-release`.
+
 ```bash
 kubernetes-ontology \
   --server "http://127.0.0.1:18080" \
   --diagnose-helm-release \
   --namespace default \
-  --name my-release
+  --name my-release \
+  --recipe helm-upgrade-runtime-failure
 ```
 
 Use this when the user knows the release name but does not have the original

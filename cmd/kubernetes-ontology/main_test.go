@@ -51,6 +51,28 @@ func TestQueryServerReturnsStructuredServerError(t *testing.T) {
 	}
 }
 
+func TestQueryServerPassesDiagnosticRecipe(t *testing.T) {
+	var recipe string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		recipe = r.URL.Query().Get("recipe")
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	}))
+	defer server.Close()
+
+	err := queryServer(server.URL, serverQueryOptions{
+		entryKind:        "Pod",
+		namespace:        "default",
+		name:             "frontend",
+		diagnosticRecipe: "helm-upgrade-runtime-failure",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if recipe != "helm-upgrade-runtime-failure" {
+		t.Fatalf("expected recipe query param, got %q", recipe)
+	}
+}
+
 func TestWriteMachineErrorPrintsJSONPayload(t *testing.T) {
 	err := &serverError{
 		StatusCode: http.StatusNotFound,

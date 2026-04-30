@@ -1,0 +1,298 @@
+{
+  "schemaVersion": "diagnostic.kubernetes-ontology.io/v1alpha1",
+  "recipe": "helm-upgrade-runtime-failure",
+  "lanes": [
+    {
+      "id": "observed-runtime",
+      "title": "Observed Runtime",
+      "summary": "Kubernetes objects, status, and Events visible now."
+    },
+    {
+      "id": "inferred-ownership",
+      "title": "Inferred Ownership",
+      "summary": "Package and controller relationships inferred from metadata."
+    },
+    {
+      "id": "unavailable-input",
+      "title": "Unavailable Input",
+      "summary": "Helm-side inputs not present in current Kubernetes objects."
+    }
+  ],
+  "entry": {
+    "kind": "Pod",
+    "canonicalId": "kind-demo/core/Pod/shop/checkout-7f4c9b6d9d-x2m4p/pod-checkout/_",
+    "namespace": "shop",
+    "name": "checkout-7f4c9b6d9d-x2m4p"
+  },
+  "nodes": [
+    {
+      "canonicalId": "kind-demo/apps/Deployment/shop/checkout/dep-checkout/_",
+      "kind": "Workload",
+      "sourceKind": "Deployment",
+      "namespace": "shop",
+      "name": "checkout",
+      "attributes": {
+        "apiVersion": "apps/v1",
+        "readyReplicas": 1,
+        "updatedReplicas": 1
+      }
+    },
+    {
+      "canonicalId": "kind-demo/core/Pod/shop/checkout-7f4c9b6d9d-x2m4p/pod-checkout/_",
+      "kind": "Pod",
+      "sourceKind": "Pod",
+      "namespace": "shop",
+      "name": "checkout-7f4c9b6d9d-x2m4p",
+      "attributes": {
+        "phase": "Pending",
+        "reason": "ImagePullBackOff",
+        "ready": false,
+        "nodeName": "kind-worker"
+      }
+    },
+    {
+      "canonicalId": "kind-demo/core/ServiceAccount/shop/checkout/sa-checkout/_",
+      "kind": "ServiceAccount",
+      "sourceKind": "ServiceAccount",
+      "namespace": "shop",
+      "name": "checkout"
+    },
+    {
+      "canonicalId": "kind-demo/image/docker.io/example/checkout:v2-missing",
+      "kind": "Image",
+      "sourceKind": "Image",
+      "name": "docker.io/example/checkout:v2-missing"
+    },
+    {
+      "canonicalId": "kind-demo/helm/HelmRelease/shop/checkout/release-checkout/_",
+      "kind": "HelmRelease",
+      "sourceKind": "HelmRelease",
+      "namespace": "shop",
+      "name": "checkout",
+      "attributes": {
+        "release": "checkout",
+        "source": "labels"
+      }
+    },
+    {
+      "canonicalId": "kind-demo/helm/HelmRelease/shop/checkout-old/release-checkout-old/_",
+      "kind": "HelmRelease",
+      "sourceKind": "HelmRelease",
+      "namespace": "shop",
+      "name": "checkout-old",
+      "attributes": {
+        "release": "checkout-old",
+        "source": "stale-label"
+      }
+    },
+    {
+      "canonicalId": "kind-demo/helm/HelmChart/_/checkout/chart-checkout-2.0.0/_",
+      "kind": "HelmChart",
+      "sourceKind": "HelmChart",
+      "name": "checkout-2.0.0",
+      "attributes": {
+        "chart": "checkout",
+        "version": "2.0.0"
+      }
+    },
+    {
+      "canonicalId": "kind-demo/events/Event/shop/checkout-7f4c9b6d9d-x2m4p/event-image-pull/_",
+      "kind": "Event",
+      "sourceKind": "Event",
+      "namespace": "shop",
+      "name": "checkout-7f4c9b6d9d-x2m4p.17f1",
+      "attributes": {
+        "type": "Warning",
+        "reason": "Failed",
+        "message": "Failed to pull image \"docker.io/example/checkout:v2-missing\": manifest unknown",
+        "count": 6
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "kind-demo/apps/Deployment/shop/checkout/dep-checkout/_",
+      "to": "kind-demo/core/Pod/shop/checkout-7f4c9b6d9d-x2m4p/pod-checkout/_",
+      "kind": "owns_pod",
+      "provenance": {
+        "sourceType": "owner_reference",
+        "state": "asserted",
+        "resolver": "workload_owner_reference"
+      }
+    },
+    {
+      "from": "kind-demo/core/Pod/shop/checkout-7f4c9b6d9d-x2m4p/pod-checkout/_",
+      "to": "kind-demo/core/ServiceAccount/shop/checkout/sa-checkout/_",
+      "kind": "uses_service_account",
+      "provenance": {
+        "sourceType": "explicit_ref",
+        "state": "asserted",
+        "resolver": "pod_service_account"
+      }
+    },
+    {
+      "from": "kind-demo/core/Pod/shop/checkout-7f4c9b6d9d-x2m4p/pod-checkout/_",
+      "to": "kind-demo/image/docker.io/example/checkout:v2-missing",
+      "kind": "uses_image",
+      "provenance": {
+        "sourceType": "explicit_ref",
+        "state": "asserted",
+        "resolver": "pod_container_image"
+      }
+    },
+    {
+      "from": "kind-demo/core/Pod/shop/checkout-7f4c9b6d9d-x2m4p/pod-checkout/_",
+      "to": "kind-demo/events/Event/shop/checkout-7f4c9b6d9d-x2m4p/event-image-pull/_",
+      "kind": "reported_by_event",
+      "provenance": {
+        "sourceType": "observed",
+        "state": "observed",
+        "resolver": "event_involved_object"
+      }
+    },
+    {
+      "from": "kind-demo/apps/Deployment/shop/checkout/dep-checkout/_",
+      "to": "kind-demo/helm/HelmRelease/shop/checkout/release-checkout/_",
+      "kind": "managed_by_helm_release",
+      "provenance": {
+        "sourceType": "label_evidence",
+        "state": "inferred",
+        "resolver": "helm_labels",
+        "confidence": 0.85
+      }
+    },
+    {
+      "from": "kind-demo/apps/Deployment/shop/checkout/dep-checkout/_",
+      "to": "kind-demo/helm/HelmRelease/shop/checkout-old/release-checkout-old/_",
+      "kind": "managed_by_helm_release",
+      "provenance": {
+        "sourceType": "label_evidence",
+        "state": "inferred",
+        "resolver": "helm_labels",
+        "confidence": 0.35
+      }
+    },
+    {
+      "from": "kind-demo/helm/HelmRelease/shop/checkout/release-checkout/_",
+      "to": "kind-demo/helm/HelmChart/_/checkout/chart-checkout-2.0.0/_",
+      "kind": "installs_chart",
+      "provenance": {
+        "sourceType": "label_evidence",
+        "state": "inferred",
+        "resolver": "helm_chart_labels",
+        "confidence": 0.85
+      }
+    }
+  ],
+  "collectedAt": "2026-04-29T00:00:00Z",
+  "explanation": [
+    "event: Failed - Failed to pull image \"docker.io/example/checkout:v2-missing\": manifest unknown",
+    "helm: Workload shop/checkout is probably managed by Helm release shop/checkout"
+  ],
+  "warnings": [
+    {
+      "code": "helm_cli_output_not_observed",
+      "severity": "info",
+      "message": "diagnostic uses current Kubernetes objects and Helm metadata only; Helm template, values, repository, client, hook, and --atomic rollback errors are not observable without user-provided Helm output",
+      "source": "helm",
+      "nextAction": "paste helm upgrade stderr or run helm status/history when the failure happened before or outside Kubernetes rollout"
+    },
+    {
+      "code": "helm_manifest_evidence_not_collected",
+      "severity": "info",
+      "message": "Helm ownership is inferred from labels/annotations; exact release manifest membership is not collected in the default diagnostic path",
+      "source": "helm",
+      "nextAction": "treat Helm ownership as probable evidence unless the user provides Helm status/history or an opt-in release manifest source is available"
+    }
+  ],
+  "partial": false,
+  "degradedSources": [
+    {
+      "source": "helm_cli_output",
+      "status": "not_collected",
+      "reason": "outside_kubernetes_api",
+      "message": "Helm stderr, status, and history are not available from current cluster objects",
+      "retryable": false,
+      "nextAction": "ask the user to paste helm upgrade output for template, values, repository, client, hook, or rollback-stage failures"
+    },
+    {
+      "source": "helm_release_manifest",
+      "status": "not_collected",
+      "reason": "label_evidence_only",
+      "message": "Exact Helm release manifest membership is not collected in the default diagnostic path",
+      "retryable": false,
+      "nextAction": "use the returned label evidence as probable ownership, not proof of exact manifest membership"
+    }
+  ],
+  "budgets": {
+    "maxDepth": 2,
+    "storageMaxDepth": 5,
+    "maxNodes": 200,
+    "maxEdges": 400,
+    "nodeCount": 8,
+    "edgeCount": 7,
+    "truncated": false
+  },
+  "rankedEvidence": [
+    {
+      "rank": 1,
+      "source": "event",
+      "nodeId": "kind-demo/events/Event/shop/checkout-7f4c9b6d9d-x2m4p/event-image-pull/_",
+      "kind": "Event",
+      "severity": "warning",
+      "reason": "Failed",
+      "message": "Failed to pull image \"docker.io/example/checkout:v2-missing\": manifest unknown",
+      "confidence": "observed",
+      "score": 90
+    },
+    {
+      "rank": 2,
+      "source": "helm",
+      "edgeKey": "kind-demo/apps/Deployment/shop/checkout/dep-checkout/_|managed_by_helm_release|kind-demo/helm/HelmRelease/shop/checkout/release-checkout/_",
+      "kind": "managed_by_helm_release",
+      "severity": "info",
+      "reason": "HelmOwnershipEvidence",
+      "message": "Workload shop/checkout is probably managed by Helm release shop/checkout",
+      "confidence": "strong",
+      "score": 59.5
+    },
+    {
+      "rank": 3,
+      "source": "helm",
+      "edgeKey": "kind-demo/helm/HelmRelease/shop/checkout/release-checkout/_|installs_chart|kind-demo/helm/HelmChart/_/checkout/chart-checkout-2.0.0/_",
+      "kind": "installs_chart",
+      "severity": "info",
+      "reason": "HelmChartEvidence",
+      "message": "Helm release shop/checkout installs chart checkout-2.0.0",
+      "confidence": "strong",
+      "score": 51
+    }
+  ],
+  "conflicts": [
+    {
+      "code": "helm_ownership_conflict",
+      "message": "resource has multiple Helm release ownership hints; do not select one owner without stronger Helm CLI output or release manifest evidence",
+      "nodeIds": [
+        "kind-demo/apps/Deployment/shop/checkout/dep-checkout/_",
+        "kind-demo/helm/HelmRelease/shop/checkout/release-checkout/_",
+        "kind-demo/helm/HelmRelease/shop/checkout-old/release-checkout-old/_"
+      ],
+      "edgeKeys": [
+        "kind-demo/apps/Deployment/shop/checkout/dep-checkout/_|managed_by_helm_release|kind-demo/helm/HelmRelease/shop/checkout-old/release-checkout-old/_",
+        "kind-demo/apps/Deployment/shop/checkout/dep-checkout/_|managed_by_helm_release|kind-demo/helm/HelmRelease/shop/checkout/release-checkout/_"
+      ],
+      "confidence": "conflicting"
+    }
+  ],
+  "nodeCount": 8,
+  "edgeCount": 7,
+  "freshness": {
+    "ready": true,
+    "phase": "ready",
+    "cluster": "kind-demo",
+    "nodeCount": 312,
+    "edgeCount": 641,
+    "lastRefreshAt": "2026-04-29T00:00:00Z",
+    "lastStrategy": "pod-narrow"
+  }
+}

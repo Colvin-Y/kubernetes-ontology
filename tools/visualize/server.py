@@ -14,8 +14,8 @@ ROOT = Path(__file__).resolve().parents[2]
 VIEWER = ROOT / "tools" / "visualize" / "index.html"
 VERSION = str(int(VIEWER.stat().st_mtime))
 DEFAULT_ONTOLOGY_SERVER = os.environ.get("ONTOLOGY_SERVER", "http://127.0.0.1:18080")
-NAMESPACED_DIAGNOSTIC_KINDS = {"pod", "workload", "pvc"}
-CLUSTER_SCOPED_DIAGNOSTIC_KINDS = {"pv", "storageclass", "csidriver"}
+NAMESPACED_DIAGNOSTIC_KINDS = {"pod", "workload", "pvc", "helmrelease"}
+CLUSTER_SCOPED_DIAGNOSTIC_KINDS = {"pv", "storageclass", "csidriver", "helmchart"}
 
 
 def float_env(name, default):
@@ -30,10 +30,11 @@ UPSTREAM_TIMEOUT_SECONDS = float_env("VIEWER_UPSTREAM_TIMEOUT_SECONDS", 30)
 
 
 class UpstreamHTTPError(Exception):
-    def __init__(self, status, message):
+    def __init__(self, status, message, payload=None):
         super().__init__(message)
         self.status = status
         self.message = message
+        self.payload = payload
 
 
 class UpstreamTimeoutError(TimeoutError):
@@ -96,6 +97,9 @@ class Handler(SimpleHTTPRequestHandler):
             name = first(qs, "name")
             max_depth = first(qs, "maxDepth", "2")
             storage_max_depth = first(qs, "storageMaxDepth", "5")
+            max_nodes = first(qs, "maxNodes")
+            max_edges = first(qs, "maxEdges")
+            recipe = first(qs, "recipe")
             terminal_kinds = first(qs, "terminalKinds")
             expand_terminal_nodes = first(qs, "expandTerminalNodes")
             if kind_key in CLUSTER_SCOPED_DIAGNOSTIC_KINDS:
@@ -114,6 +118,12 @@ class Handler(SimpleHTTPRequestHandler):
             }
             if namespace:
                 params["namespace"] = namespace
+            if max_nodes:
+                params["maxNodes"] = max_nodes
+            if max_edges:
+                params["maxEdges"] = max_edges
+            if recipe:
+                params["recipe"] = recipe
             if terminal_kinds:
                 params["terminalKinds"] = terminal_kinds
             if expand_terminal_nodes:
@@ -201,7 +211,7 @@ class Handler(SimpleHTTPRequestHandler):
 
     def _upstream_error(self, error):
         if isinstance(error, UpstreamHTTPError):
-            self._json({"error": error.message}, error.status)
+            self._json(error.payload or {"error": error.message}, error.status)
             return
         if isinstance(error, UpstreamTimeoutError):
             self._json({"error": str(error)}, 504)
@@ -232,23 +242,25 @@ def fetch_bytes(server, path, timeout=None):
         with urllib.request.urlopen(request, timeout=timeout or UPSTREAM_TIMEOUT_SECONDS) as response:
             return response.read()
     except urllib.error.HTTPError as e:
-        raise UpstreamHTTPError(e.code, upstream_error_message(e)) from e
+        payload = upstream_error_payload(e)
+        message = payload.get("error") if isinstance(payload, dict) else str(payload)
+        raise UpstreamHTTPError(e.code, str(message), payload if isinstance(payload, dict) else None) from e
     except Exception as e:
         if is_timeout_error(e):
             raise UpstreamTimeoutError(f"upstream request timed out after {timeout or UPSTREAM_TIMEOUT_SECONDS:g}s: {url}") from e
         raise
 
 
-def upstream_error_message(error):
+def upstream_error_payload(error):
     body = error.read()
     if body:
         try:
             payload = json.loads(body.decode())
-            if isinstance(payload, dict) and payload.get("error"):
-                return str(payload["error"])
+            if isinstance(payload, dict):
+                return payload
         except Exception:
-            return body.decode(errors="replace")
-    return f"upstream returned HTTP {error.code}"
+            return {"error": body.decode(errors="replace")}
+    return {"error": f"upstream returned HTTP {error.code}"}
 
 
 def is_timeout_error(error):
