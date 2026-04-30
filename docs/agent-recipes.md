@@ -4,8 +4,8 @@ This page describes small diagnostic recipes for AI-agent clients. Recipes are
 labels on the existing diagnostic subgraph response; they do not create a new
 API family or change graph traversal identity.
 
-The `--recipe` CLI flag and `recipe=...` HTTP parameter are available from the
-current source branch and from releases after `v0.1.5`.
+The `--recipe` CLI flag and `recipe=...` HTTP parameter are available in
+`v0.1.6` and newer release archives.
 
 ## Available v1 Recipes
 

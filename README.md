@@ -120,9 +120,8 @@ These are ownership hints from labels, not exact manifest membership.
 
 ### Helm Upgrade Failure Triage
 
-The Incident Context Pack recipe flags in this section are available from the
-current source branch and from releases after `v0.1.5`. Published `v0.1.5`
-archives do not include `--recipe` or `--diagnose-helm-release`.
+The Incident Context Pack recipe flags in this section are available in
+`v0.1.6` and newer release archives.
 
 When a user only says "helm upgrade failed" and does not have the Helm CLI
 output, `kubernetes-ontology` can still diagnose the current cluster state for
@@ -242,7 +241,7 @@ the published GHCR image. The release archive includes the server
 viewer `kubernetes-ontology-viewer`.
 
 ```bash
-export KO_VERSION=v0.1.5
+export KO_VERSION=v0.1.6
 curl -LO "https://github.com/Colvin-Y/kubernetes-ontology/releases/download/${KO_VERSION}/kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
 tar -xzf "kubernetes-ontology_${KO_VERSION}_linux_amd64.tar.gz"
 cd "kubernetes-ontology_${KO_VERSION}_linux_amd64"
@@ -286,7 +285,7 @@ clusters, mirror `ghcr.io/colvin-y/kubernetes-ontology` to an internal registry
 and set `KO_IMAGE` to that mirror, or use the release binary path above.
 
 ```bash
-export KO_VERSION=v0.1.5
+export KO_VERSION=v0.1.6
 export KO_IMAGE=ghcr.io/colvin-y/kubernetes-ontology
 
 helm upgrade --install kubernetes-ontology ./charts/kubernetes-ontology \
@@ -443,7 +442,7 @@ Diagnose a pod:
 
 Diagnose a Helm release after a failed upgrade:
 
-Requires a source build or a release after `v0.1.5`.
+Requires `v0.1.6` or newer.
 
 ```bash
 ./bin/kubernetes-ontology \
@@ -599,7 +598,7 @@ Tagged releases publish:
   `kubernetes-ontology-viewer`, Quickstart docs, release notes, and a local
   config example
 - a packaged Helm chart archive, for example
-  `kubernetes-ontology-0.1.5.tgz`
+  `kubernetes-ontology-0.1.6.tgz`
 - a multi-architecture image at
   `ghcr.io/colvin-y/kubernetes-ontology:<tag>`
 - SemVer aliases without the leading `v`, plus `latest`
