@@ -7,13 +7,15 @@ import net from "node:net";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "../..");
-const graphPath = "samples/image-pull-demo/diagnostic-graph.json";
 const frameDir = "/tmp/kubernetes-ontology-viewer-gif-frames";
 const width = Number(process.env.CAPTURE_WIDTH || "1600");
 const height = Number(process.env.CAPTURE_HEIGHT || "900");
 const chromeBin = process.env.CHROME_BIN || detectChrome();
 const locale = normalizeLocale(process.env.CAPTURE_LOCALE || "zh-CN");
-const outputPath = resolve(repoRoot, process.env.CAPTURE_OUTPUT || localeConfig(locale).output);
+const scenarioName = process.env.CAPTURE_SCENARIO || "image-pull-demo";
+const scenario = scenarioConfig(scenarioName, locale);
+const graphPath = process.env.CAPTURE_GRAPH || scenario.graphPath;
+const outputPath = resolve(repoRoot, process.env.CAPTURE_OUTPUT || scenario.output);
 
 if (!chromeBin) {
   throw new Error("Chrome was not found. Set CHROME_BIN to a Chrome or Chromium executable.");
@@ -26,68 +28,200 @@ function normalizeLocale(value) {
   throw new Error(`unsupported CAPTURE_LOCALE: ${value}`);
 }
 
-function localeConfig(value) {
+function scenarioConfig(name, value) {
   const configs = {
-    en: {
-      output: "docs/assets/image-pull-demo.en.gif",
-      notes: [
+    "image-pull-demo": {
+      graphPath: "samples/image-pull-demo/diagnostic-graph.json",
+      locales: {
+        en: {
+          output: "docs/assets/image-pull-demo.en.gif",
+          notes: [
         {
           title: "Full Diagnostic Topology",
           body: "Starting from one ImagePullBackOff Pod, the viewer shows owner, Service, config, identity/RBAC, image, and Event evidence in one graph.",
+          slug: "real-viewer-loaded",
         },
         {
           title: "Entry Node: Failing Pod",
           body: "Selecting the Pod shows phase and reason in the details panel while the graph keeps the full troubleshooting context visible.",
+          parts: ["Pod", "ontology-demo", "checkout-api"],
+          slug: "select-pod",
         },
         {
           title: "Owner Chain Explains Blast Radius",
           body: "Deployment, ReplicaSet, and Pod ownership shows which workload owns the failure and helps judge rollout or rollback impact.",
+          parts: ["Workload", "ontology-demo", "checkout-api"],
+          slug: "select-workload",
         },
         {
           title: "Image Dependency Points to a Root-Cause Candidate",
           body: "The uses_image relation connects the Pod to the actual image tag; the missing tag is the key ImagePullBackOff clue.",
+          parts: ["Image", "missing-tag"],
+          slug: "select-image",
         },
         {
           title: "Events Provide Failure Evidence",
           body: "Event nodes preserve kubelet pull and BackOff evidence, helping humans and agents converge from topology to concrete error.",
+          parts: ["Event", "ontology-demo", "checkout-api"],
+          slug: "select-event",
         },
         {
           title: "Identity and RBAC Stay in Context",
           body: "The same graph includes ServiceAccount and RoleBinding evidence, so identity or permission context is not lost during diagnosis.",
+          parts: ["ServiceAccount", "ontology-demo"],
+          slug: "select-identity",
         },
-      ],
-    },
-    "zh-CN": {
-      output: "docs/assets/image-pull-demo.gif",
-      notes: [
+          ],
+        },
+        "zh-CN": {
+          output: "docs/assets/image-pull-demo.gif",
+          notes: [
         {
           title: "完整诊断拓扑",
           body: "从一个 ImagePullBackOff Pod 出发，viewer 一次性展示 owner、Service、配置、身份/RBAC、镜像和 Event 证据。",
+          slug: "real-viewer-loaded",
         },
         {
           title: "入口节点：故障 Pod",
           body: "选中 Pod 后，右侧详情能看到 phase/reason；中间图保留完整上下文，不会只剩一段局部链路。",
+          parts: ["Pod", "ontology-demo", "checkout-api"],
+          slug: "select-pod",
         },
         {
           title: "owner 链路解释影响范围",
           body: "Deployment、ReplicaSet、Pod 的 owner 关系说明故障属于哪个 workload，便于判断发布或回滚影响面。",
+          parts: ["Workload", "ontology-demo", "checkout-api"],
+          slug: "select-workload",
         },
         {
           title: "镜像依赖指向根因候选",
           body: "uses_image 关系把 Pod 和实际镜像 tag 连起来；这里的 missing-tag 是 ImagePullBackOff 的关键线索。",
+          parts: ["Image", "missing-tag"],
+          slug: "select-image",
         },
         {
           title: "Event 提供失败证据",
           body: "Event 节点保留 kubelet 报错和 BackOff 证据，让人和 Agent 都能把根因从拓扑关系收敛到具体错误。",
+          parts: ["Event", "ontology-demo", "checkout-api"],
+          slug: "select-event",
         },
         {
           title: "身份和 RBAC 不丢上下文",
           body: "同一张图也带出 ServiceAccount 与 RoleBinding，排除镜像问题之外的身份/权限干扰因素。",
+          parts: ["ServiceAccount", "ontology-demo"],
+          slug: "select-identity",
         },
-      ],
+          ],
+        },
+      },
+    },
+    "kind-helm-storage": {
+      graphPath: "samples/kind-helm-storage-demo/diagnostic-graph.json",
+      locales: {
+        en: {
+          output: "docs/assets/kind-helm-storage-demo.en.gif",
+          notes: [
+        {
+          title: "Kind Helm Storage Topology",
+          body: "A Helm-installed checkout workload is shown with Service, config, identity, PVC, PV, StorageClass, CSIDriver, local-path provisioner, Node, and Event evidence.",
+          slug: "real-viewer-loaded",
+        },
+        {
+          title: "Helm Release Owns Runtime Objects",
+          body: "The chart and release sit beside the Kubernetes objects they produced, so deployment provenance stays visible during diagnosis.",
+          parts: ["HelmRelease", "payments", "checkout"],
+          slug: "select-helm-release",
+        },
+        {
+          title: "Workload Path To The Pod",
+          body: "Deployment and ReplicaSet ownership explain which rollout produced the Pod and how far a rollback would reach.",
+          parts: ["Pod", "payments", "checkout-api"],
+          slug: "select-pod",
+        },
+        {
+          title: "PVCs Mark The Storage Boundary",
+          body: "The consuming Pod mounts data and cache claims, making the application-to-storage dependency explicit instead of buried in YAML.",
+          parts: ["PVC", "payments", "checkout-data"],
+          slug: "select-pvc",
+        },
+        {
+          title: "PV And StorageClass Explain Binding",
+          body: "The bound PVs carry node affinity and point to the standard StorageClass, which is the handoff into local-path provisioning.",
+          parts: ["StorageClass", "standard"],
+          slug: "select-storageclass",
+        },
+        {
+          title: "CSI Driver Connects Storage To Control Plane",
+          body: "The StorageClass provisioner resolves to the CSIDriver and its controller implementation, closing the loop between claims and cluster storage plumbing.",
+          parts: ["CSIDriver", "rancher.io/local-path"],
+          slug: "select-csidriver",
+        },
+        {
+          title: "Provisioner Pod And Events Keep Evidence Nearby",
+          body: "The graph keeps local-path provisioner placement and mount/provisioning Events in the same visual context as the consuming workload.",
+          parts: ["Workload", "local-path-storage", "local-path-provisioner"],
+          slug: "select-provisioner",
+        },
+          ],
+        },
+        "zh-CN": {
+          output: "docs/assets/kind-helm-storage-demo.gif",
+          notes: [
+        {
+          title: "kind Helm 存储拓扑",
+          body: "Helm 安装的 checkout workload 与 Service、配置、身份、PVC、PV、StorageClass、CSIDriver、local-path provisioner、Node 和 Event 证据同屏呈现。",
+          slug: "real-viewer-loaded",
+        },
+        {
+          title: "Helm Release 连接运行时对象",
+          body: "Chart 与 release 放在它产出的 Kubernetes 对象旁边，排障时不会丢掉部署来源。",
+          parts: ["HelmRelease", "payments", "checkout"],
+          slug: "select-helm-release",
+        },
+        {
+          title: "workload 链路追到 Pod",
+          body: "Deployment、ReplicaSet、Pod 的 owner 关系说明这个 Pod 来自哪次发布，也能判断回滚影响面。",
+          parts: ["Pod", "payments", "checkout-api"],
+          slug: "select-pod",
+        },
+        {
+          title: "PVC 标出存储边界",
+          body: "Pod 同时挂载 data 和 cache 两个 claim，应用到存储的依赖不再藏在 YAML 里。",
+          parts: ["PVC", "payments", "checkout-data"],
+          slug: "select-pvc",
+        },
+        {
+          title: "PV 与 StorageClass 解释绑定",
+          body: "已绑定的 PV 带着 node affinity，并指向 standard StorageClass，这是进入 local-path provisioner 的关键交接点。",
+          parts: ["StorageClass", "standard"],
+          slug: "select-storageclass",
+        },
+        {
+          title: "CSI Driver 串起存储控制面",
+          body: "StorageClass 的 provisioner 解析到 CSIDriver 和对应 controller，实现从 claim 到集群存储组件的闭环。",
+          parts: ["CSIDriver", "rancher.io/local-path"],
+          slug: "select-csidriver",
+        },
+        {
+          title: "provisioner 与 Event 保留证据",
+          body: "local-path provisioner 的位置、挂载与 provision Event 都保留在同一张图里，方便从应用一路追到存储实现。",
+          parts: ["Workload", "local-path-storage", "local-path-provisioner"],
+          slug: "select-provisioner",
+        },
+          ],
+        },
+      },
     },
   };
-  return configs[value];
+  const config = configs[name];
+  if (!config) {
+    throw new Error(`unsupported CAPTURE_SCENARIO: ${name}`);
+  }
+  const localized = config.locales[value];
+  if (!localized) {
+    throw new Error(`unsupported locale ${value} for CAPTURE_SCENARIO=${name}`);
+  }
+  return { graphPath: config.graphPath, ...localized };
 }
 
 function detectChrome() {
@@ -200,7 +334,9 @@ async function evaluate(page, expression) {
 async function waitForGraph(page) {
   const deadline = Date.now() + 10000;
   while (Date.now() < deadline) {
-    const count = await evaluate(page, "document.querySelectorAll('.node-group').length");
+    const count = await evaluate(page, `
+      window.__KO_VIEWER__ ? window.__KO_VIEWER__.nodeCount() : document.querySelectorAll('.node-group').length
+    `);
     if (count > 0) return;
     await wait(200);
   }
@@ -225,7 +361,7 @@ from PIL import Image
 
 out = Path(sys.argv[1])
 frames = [Image.open(path).convert("RGB") for path in sys.argv[2:]]
-durations = [2100, 2300, 2300, 2300, 2300, 2800]
+durations = [2100] + ([2300] * max(0, len(frames) - 2)) + ([2800] if len(frames) > 1 else [])
 out.parent.mkdir(parents=True, exist_ok=True)
 frames[0].save(out, save_all=True, append_images=frames[1:], duration=durations[:len(frames)], loop=0, optimize=True)
 print(out)
@@ -314,14 +450,17 @@ async function main() {
         note.id = 'captureNote';
         note.className = 'capture-note';
         document.querySelector('.canvas-wrap').appendChild(note);
-        const edgeLabels = document.getElementById('showEdgeLabels');
-        if (edgeLabels && !edgeLabels.checked) edgeLabels.click();
+        window.__KO_VIEWER__?.setEdgeLabels(true);
       })()
     `);
     await wait(400);
 
     const fitGraph = `
       (() => {
+        if (window.__KO_VIEWER__) {
+          window.__KO_VIEWER__.fit();
+          return;
+        }
         const svg = document.getElementById('graph');
         const nodes = document.getElementById('nodesLayer');
         const viewport = document.getElementById('graphViewport');
@@ -359,9 +498,16 @@ async function main() {
         note.innerHTML = '<strong>${escapeForJS(title)}</strong>${escapeForJS(body)}';
       })()
     `);
-    const selectNode = (predicate, errorMessage) => evaluate(page, `
+    const selectNode = (parts, errorMessage) => evaluate(page, `
       (() => {
-        const group = [...document.querySelectorAll('.node-group')].find((item) => ${predicate});
+        if (window.__KO_VIEWER__) {
+          return window.__KO_VIEWER__.selectNodeByText(${JSON.stringify(parts)});
+        }
+        const required = ${JSON.stringify(parts)}.map((part) => String(part).toLowerCase());
+        const group = [...document.querySelectorAll('.node-group')].find((item) => {
+          const text = item.textContent.toLowerCase();
+          return required.every((part) => text.includes(part));
+        });
         if (!group) throw new Error('${escapeForJS(errorMessage)}');
         group.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
       })()
@@ -371,54 +517,20 @@ async function main() {
     await wait(300);
 
     const frames = [];
-    const notes = localeConfig(locale).notes;
+    const notes = scenario.notes;
     await setNote(notes[0].title, notes[0].body);
-    frames.push(await capture(page, "01-real-viewer-loaded"));
+    frames.push(await capture(page, `01-${notes[0].slug || "real-viewer-loaded"}`));
 
-    await selectNode(
-      "item.textContent.includes('Pod / ontology-demo')",
-      "Pod node not found"
-    );
-    await wait(450);
-    await evaluate(page, fitGraph);
-    await setNote(notes[1].title, notes[1].body);
-    frames.push(await capture(page, "02-select-pod"));
-
-    await selectNode(
-      "item.textContent.includes('Workload / ontology-demo') && item.textContent.includes('checkout-api')",
-      "Workload node not found"
-    );
-    await wait(450);
-    await evaluate(page, fitGraph);
-    await setNote(notes[2].title, notes[2].body);
-    frames.push(await capture(page, "03-select-workload"));
-
-    await selectNode(
-      "item.textContent.includes('Image') && !item.textContent.includes('Event')",
-      "Image node not found"
-    );
-    await wait(450);
-    await evaluate(page, fitGraph);
-    await setNote(notes[3].title, notes[3].body);
-    frames.push(await capture(page, "04-select-image"));
-
-    await selectNode(
-      "item.textContent.includes('Event / ontology-demo') && item.textContent.includes('checkout-api')",
-      "Event node not found"
-    );
-    await wait(450);
-    await evaluate(page, fitGraph);
-    await setNote(notes[4].title, notes[4].body);
-    frames.push(await capture(page, "05-select-event"));
-
-    await selectNode(
-      "item.textContent.includes('ServiceAccount / ontology-demo')",
-      "ServiceAccount node not found"
-    );
-    await wait(450);
-    await evaluate(page, fitGraph);
-    await setNote(notes[5].title, notes[5].body);
-    frames.push(await capture(page, "06-select-identity"));
+    for (const [index, note] of notes.slice(1).entries()) {
+      if (note.parts) {
+        await selectNode(note.parts, `${note.title} node not found`);
+        await wait(450);
+        await evaluate(page, fitGraph);
+      }
+      await setNote(note.title, note.body);
+      const frameIndex = String(index + 2).padStart(2, "0");
+      frames.push(await capture(page, `${frameIndex}-${note.slug || "step"}`));
+    }
 
     await convertFramesToGIF(frames);
     console.log(`wrote ${outputPath}`);

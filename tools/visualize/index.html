@@ -382,6 +382,20 @@
       display: block;
     }
 
+    .cy-graph {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+    }
+
+    .professional-renderer svg {
+      display: none;
+    }
+
+    .legacy-renderer .cy-graph {
+      display: none;
+    }
+
     .edge {
       fill: none;
       stroke: rgba(203,213,225,.42);
@@ -604,6 +618,10 @@
       svg {
         height: 70vh;
       }
+
+      .cy-graph {
+        height: 70vh;
+      }
     }
   </style>
 </head>
@@ -785,8 +803,13 @@
       <button id="clearFocusBtn">Clear focus</button>
       <button id="zoomInBtn">Zoom in</button>
       <button id="zoomOutBtn">Zoom out</button>
+      <select id="rendererSelect" title="Renderer">
+        <option value="cytoscape">Professional renderer</option>
+        <option value="svg">Legacy SVG renderer</option>
+      </select>
       <select id="layoutSelect" title="Layout">
         <option value="auto">Auto layout</option>
+        <option value="force">Force map</option>
         <option value="kind">Kind columns</option>
         <option value="distance">Entry distance</option>
         <option value="radial">Radial</option>
@@ -806,6 +829,7 @@
       </div>
     </div>
 
+    <div id="cyGraph" class="cy-graph" aria-label="Topology graph"></div>
     <svg id="graph" viewBox="0 0 1600 1000">
       <defs>
         <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -857,6 +881,7 @@
     </div>
   </aside>
 
+  <script src="/vendor/cytoscape.min.js"></script>
   <script>
     const COLORS = {
       Pod: css('--pod'),
@@ -935,6 +960,7 @@
       panX: 0,
       panY: 0,
       scale: 1,
+      rendererMode: 'cytoscape',
       layoutMode: 'auto',
       showEdgeLabels: false,
       diagnosticMaxDepth: '2',
@@ -950,7 +976,10 @@
       loadTitle: '',
       loadMessage: '',
       isPanning: false,
-      lastVisible: { nodes: [], edges: [] }
+      lastVisible: { nodes: [], edges: [] },
+      cy: null,
+      cyRenderSignature: '',
+      cyLayoutSignature: ''
     };
 
     const filterControls = {
@@ -990,6 +1019,7 @@
       clearFocusBtn: document.getElementById('clearFocusBtn'),
       zoomInBtn: document.getElementById('zoomInBtn'),
       zoomOutBtn: document.getElementById('zoomOutBtn'),
+      rendererSelect: document.getElementById('rendererSelect'),
       layoutSelect: document.getElementById('layoutSelect'),
       showEdgeLabels: document.getElementById('showEdgeLabels'),
       exportBtn: document.getElementById('exportBtn'),
@@ -1016,6 +1046,7 @@
       statePrimaryBtn: document.getElementById('statePrimaryBtn'),
       stateDiagnosticBtn: document.getElementById('stateDiagnosticBtn'),
       stateClearFiltersBtn: document.getElementById('stateClearFiltersBtn'),
+      cyGraph: document.getElementById('cyGraph'),
       svg: document.getElementById('graph'),
       graphViewport: document.getElementById('graphViewport'),
       groupsLayer: document.getElementById('groupsLayer'),
@@ -1032,6 +1063,7 @@
     hydrateFromQuery();
     wireEvents();
     renderCanvasState();
+    installViewerDebug();
 
     function css(name) {
       return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -1058,6 +1090,9 @@
       if (params.get('maxNodes')) state.diagnosticMaxNodes = params.get('maxNodes');
       if (params.get('maxEdges')) state.diagnosticMaxEdges = params.get('maxEdges');
       if (params.get('recipe')) state.diagnosticRecipe = params.get('recipe');
+      if (params.get('renderer') === 'svg') state.rendererMode = 'svg';
+      if (params.get('renderer') === 'cytoscape') state.rendererMode = 'cytoscape';
+      el.rendererSelect.value = state.rendererMode;
       if (params.get('terminalKinds')) el.diagnosticTerminalKinds.value = params.get('terminalKinds');
       if (params.get('expandTerminalNodes')) el.expandTerminalNodes.checked = params.get('expandTerminalNodes') === 'true';
       el.diagnosticMaxNodes.value = state.diagnosticMaxNodes;
@@ -1092,6 +1127,11 @@
       el.clearFocusBtn.addEventListener('click', clearFocus);
       el.zoomInBtn.addEventListener('click', () => zoomBy(1.16));
       el.zoomOutBtn.addEventListener('click', () => zoomBy(0.86));
+      el.rendererSelect.addEventListener('change', () => {
+        state.rendererMode = el.rendererSelect.value;
+        render();
+        fitToView();
+      });
       el.layoutSelect.addEventListener('change', () => {
         state.layoutMode = el.layoutSelect.value;
         render();
@@ -1940,10 +1980,391 @@
       }
     }
 
-    function renderGraph(nodes, edges) {
-      el.groupsLayer.innerHTML = '';
-      el.edgesLayer.innerHTML = '';
-      el.edgeLabelsLayer.innerHTML = '';
+      function renderGraph(nodes, edges) {
+        if (state.rendererMode === 'cytoscape' && renderCytoscapeGraph(nodes, edges)) return;
+        renderLegacyGraph(nodes, edges);
+      }
+
+      function renderCytoscapeGraph(nodes, edges) {
+        if (typeof window.cytoscape !== 'function') {
+          state.rendererMode = 'svg';
+          el.rendererSelect.value = 'svg';
+          setRendererClasses(false);
+          return false;
+        }
+        try {
+          ensureCytoscape();
+          setRendererClasses(true);
+          const structureSignature = cytoscapeStructureSignature(nodes, edges);
+          const elements = cytoscapeElements(nodes, edges);
+          if (state.cyRenderSignature !== structureSignature) {
+            state.cy.batch(() => {
+              state.cy.elements().remove();
+              state.cy.add(elements);
+            });
+            state.cyRenderSignature = structureSignature;
+            runCytoscapeLayout(nodes, edges);
+          } else {
+            syncCytoscapeElementState(nodes, edges);
+          }
+          syncCytoscapeSelection();
+          state.positions = cytoscapePositions();
+          return true;
+        } catch (error) {
+          console.warn('Cytoscape renderer failed, falling back to SVG renderer.', error);
+          state.rendererMode = 'svg';
+          el.rendererSelect.value = 'svg';
+          setRendererClasses(false);
+          return false;
+        }
+      }
+
+      function ensureCytoscape() {
+        if (state.cy) return;
+        state.cy = cytoscape({
+          container: el.cyGraph,
+          elements: [],
+          minZoom: 0.08,
+          maxZoom: 5,
+          wheelSensitivity: 0.16,
+          boxSelectionEnabled: true,
+          autounselectify: false,
+          textureOnViewport: true,
+          hideEdgesOnViewport: true,
+          style: cytoscapeStyle()
+        });
+        state.cy.on('tap', 'node', (event) => {
+          state.selectedEdgeKey = null;
+          state.selectedNodeId = event.target.id();
+          render();
+        });
+        state.cy.on('tap', 'edge', (event) => {
+          state.selectedNodeId = null;
+          state.selectedEdgeKey = event.target.id();
+          render();
+        });
+        state.cy.on('tap', (event) => {
+          if (event.target !== state.cy) return;
+          state.selectedNodeId = null;
+          state.selectedEdgeKey = null;
+          render();
+        });
+        state.cy.on('dbltap', 'node', (event) => {
+          const entityId = event.target.id();
+          state.selectedEdgeKey = null;
+          state.selectedNodeId = entityId;
+          if (isNodeExpanded(entityId)) {
+            collapseNode(entityId);
+          } else {
+            expandNode(entityId, 1).catch(showLoadError);
+          }
+        });
+      }
+
+      function setRendererClasses(professional) {
+        el.canvasWrap.classList.toggle('professional-renderer', professional);
+        el.canvasWrap.classList.toggle('legacy-renderer', !professional);
+        if (state.cy && professional) state.cy.resize();
+      }
+
+      function cytoscapeElements(nodes, edges) {
+        const nodeIds = new Set(nodes.map((node) => node.canonicalId));
+        const denseGraph = nodes.length > 180;
+        return [
+          ...nodes.map((node) => cytoscapeNodeElement(node, denseGraph)),
+          ...edges
+            .filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to))
+            .map(cytoscapeEdgeElement)
+        ];
+      }
+
+      function cytoscapeNodeElement(node, denseGraph) {
+        const selected = state.selectedNodeId === node.canonicalId;
+        const entry = state.normalized.entry?.canonicalId === node.canonicalId;
+        const highlighted = !state.highlightNodeIds.size || state.highlightNodeIds.has(node.canonicalId) || selected;
+        const showText = !denseGraph || selected || entry || state.highlightNodeIds.has(node.canonicalId);
+        return {
+          group: 'nodes',
+          data: {
+            id: node.canonicalId,
+            label: showText ? shortLabel(node.name || node.canonicalId, 26) : '',
+            sublabel: [node.kind, node.namespace].filter(Boolean).join(' / '),
+            kind: node.kind,
+            namespace: node.namespace || 'cluster-scoped',
+            color: colorFor(node.kind),
+            size: radiusFor(node.kind) * 2.2,
+            node
+          },
+          classes: [
+            selected ? 'selected' : '',
+            entry ? 'entry' : '',
+            highlighted ? '' : 'dimmed',
+            isNodeExpanded(node.canonicalId) ? 'expanded' : '',
+            showText ? '' : 'hidden-label'
+          ].filter(Boolean).join(' ')
+        };
+      }
+
+      function cytoscapeEdgeElement(edge) {
+        const key = edgeKey(edge);
+        const selected = state.selectedEdgeKey === key;
+        const highlighted = state.highlightEdgeKeys.has(key);
+        const dimmed = (state.highlightEdgeKeys.size || state.selectedNodeId) && !selected && !highlighted;
+        const signal = INTERESTING_RELATIONS.has(edge.kind);
+        const showLabel = state.showEdgeLabels || selected;
+        return {
+          group: 'edges',
+          data: {
+            id: key,
+            source: edge.from,
+            target: edge.to,
+            label: showLabel ? edge.kind : '',
+            kind: edge.kind,
+            color: signal ? css('--accent') : 'rgba(148,163,184,.72)',
+            edge
+          },
+          classes: [
+            selected ? 'selected' : '',
+            highlighted ? 'highlight' : '',
+            dimmed ? 'dimmed' : '',
+            signal ? 'signal' : ''
+          ].filter(Boolean).join(' ')
+        };
+      }
+
+      function cytoscapeStructureSignature(nodes, edges) {
+        const mode = resolvedLayoutMode();
+        const nodePart = nodes.map((node) => node.canonicalId).sort().join('\n');
+        const edgePart = edges.map(edgeKey).sort().join('\n');
+        return [mode, nodePart, edgePart].join('\n---\n');
+      }
+
+      function syncCytoscapeElementState(nodes, edges) {
+        const denseGraph = nodes.length > 180;
+        state.cy.batch(() => {
+          for (const node of nodes) {
+            const element = state.cy.getElementById(node.canonicalId);
+            if (!element.length) continue;
+            const next = cytoscapeNodeElement(node, denseGraph);
+            element.data(next.data);
+            element.classes(next.classes);
+          }
+          for (const edge of edges) {
+            const key = edgeKey(edge);
+            const element = state.cy.getElementById(key);
+            if (!element.length) continue;
+            const next = cytoscapeEdgeElement(edge);
+            element.data(next.data);
+            element.classes(next.classes);
+          }
+        });
+      }
+
+      function syncCytoscapeSelection() {
+        if (!state.cy) return;
+        state.cy.batch(() => {
+          state.cy.elements(':selected').unselect();
+          if (state.selectedNodeId) {
+            const node = state.cy.getElementById(state.selectedNodeId);
+            if (node.length) node.select();
+          }
+          if (state.selectedEdgeKey) {
+            const edge = state.cy.getElementById(state.selectedEdgeKey);
+            if (edge.length) edge.select();
+          }
+        });
+      }
+
+      function runCytoscapeLayout(nodes, edges) {
+        const mode = resolvedLayoutMode();
+        const rootId = state.normalized?.entry?.canonicalId;
+        let options;
+        if (mode === 'force') {
+          options = {
+            name: 'cose',
+            animate: false,
+            fit: false,
+            randomize: true,
+            nodeRepulsion: 860000,
+            idealEdgeLength: 116,
+            edgeElasticity: 90,
+            nestingFactor: 1.05,
+            gravity: 0.32,
+            numIter: 700,
+            componentSpacing: 92
+          };
+        } else if (mode === 'radial') {
+          const positions = layoutRadial(nodes, edges, rootId);
+          options = {
+            name: 'preset',
+            fit: false,
+            positions: (node) => positions.get(node.id()) || { x: 0, y: 0 }
+          };
+        } else if (mode === 'distance') {
+          const root = rootId ? state.cy.getElementById(rootId) : state.cy.collection();
+          options = {
+            name: 'breadthfirst',
+            directed: false,
+            animate: false,
+            fit: false,
+            spacingFactor: 1.18,
+            circle: false,
+            roots: root.length ? root : undefined
+          };
+        } else {
+          const positions = layoutByKind(nodes);
+          options = {
+            name: 'preset',
+            fit: false,
+            positions: (node) => positions.get(node.id()) || { x: 0, y: 0 }
+          };
+        }
+        state.cy.layout(options).run();
+        state.cyLayoutSignature = `${mode}:${Date.now()}`;
+      }
+
+      function cytoscapePositions() {
+        const positions = new Map();
+        if (!state.cy) return positions;
+        state.cy.nodes().forEach((node) => {
+          positions.set(node.id(), { ...node.position() });
+        });
+        return positions;
+      }
+
+      function cytoscapeStyle() {
+        return [
+          {
+            selector: 'node',
+            style: {
+              'shape': 'round-rectangle',
+              'width': 'data(size)',
+              'height': 'data(size)',
+              'background-color': 'data(color)',
+              'border-width': 1.5,
+              'border-color': 'rgba(255,255,255,.28)',
+              'label': 'data(label)',
+              'font-family': 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+              'font-size': 11,
+              'font-weight': 650,
+              'color': '#e5e7eb',
+              'text-outline-color': '#0c0f14',
+              'text-outline-width': 3,
+              'text-background-color': '#11151d',
+              'text-background-opacity': 0.72,
+              'text-background-padding': 3,
+              'text-wrap': 'wrap',
+              'text-max-width': 96,
+              'text-valign': 'bottom',
+              'text-halign': 'right',
+              'text-margin-x': 7,
+              'text-margin-y': -5,
+              'overlay-opacity': 0,
+              'transition-property': 'border-width, border-color, opacity, background-color, line-color, target-arrow-color',
+              'transition-duration': 120
+            }
+          },
+          {
+            selector: 'node.entry',
+            style: {
+              'border-width': 4,
+              'border-color': '#fde68a',
+              'width': 'mapData(size, 20, 40, 28, 48)',
+              'height': 'mapData(size, 20, 40, 28, 48)'
+            }
+          },
+          {
+            selector: 'node.expanded',
+            style: {
+              'border-style': 'double',
+              'border-width': 4,
+              'border-color': '#34d399'
+            }
+          },
+          {
+            selector: 'node.selected',
+            style: {
+              'border-width': 5,
+              'border-color': '#f8fafc',
+              'z-index': 20
+            }
+          },
+          {
+            selector: 'node.dimmed',
+            style: {
+              'opacity': 0.28
+            }
+          },
+          {
+            selector: 'node.hidden-label',
+            style: {
+              'label': ''
+            }
+          },
+          {
+            selector: 'edge',
+            style: {
+              'curve-style': 'bezier',
+              'line-color': 'data(color)',
+              'target-arrow-color': 'data(color)',
+              'target-arrow-shape': 'triangle',
+              'arrow-scale': 0.86,
+              'width': 1.7,
+              'opacity': 0.72,
+              'label': 'data(label)',
+              'font-family': 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+              'font-size': 9,
+              'font-weight': 650,
+              'color': '#cbd5e1',
+              'text-outline-color': '#0c0f14',
+              'text-outline-width': 4,
+              'text-rotation': 'autorotate',
+              'text-margin-y': -8,
+              'overlay-opacity': 0,
+              'z-index': 1
+            }
+          },
+          {
+            selector: 'edge.signal',
+            style: {
+              'width': 2.2,
+              'opacity': 0.9
+            }
+          },
+          {
+            selector: 'edge.highlight',
+            style: {
+              'width': 3.2,
+              'opacity': 1,
+              'line-color': '#38bdf8',
+              'target-arrow-color': '#38bdf8',
+              'z-index': 10
+            }
+          },
+          {
+            selector: 'edge.selected',
+            style: {
+              'width': 4,
+              'opacity': 1,
+              'line-color': '#f8fafc',
+              'target-arrow-color': '#f8fafc',
+              'z-index': 12
+            }
+          },
+          {
+            selector: 'edge.dimmed',
+            style: {
+              'opacity': 0.13
+            }
+          }
+        ];
+      }
+
+      function renderLegacyGraph(nodes, edges) {
+        setRendererClasses(false);
+        el.groupsLayer.innerHTML = '';
+        el.edgesLayer.innerHTML = '';
+        el.edgeLabelsLayer.innerHTML = '';
       el.nodesLayer.innerHTML = '';
       const positions = computeLayout(nodes, edges);
       state.positions = positions;
@@ -2255,11 +2676,14 @@
       return layoutByKind(nodes);
     }
 
-    function resolvedLayoutMode() {
-      return state.layoutMode === 'auto'
-        ? (state.normalized?.entry?.canonicalId ? 'distance' : 'kind')
-        : state.layoutMode;
-    }
+      function resolvedLayoutMode() {
+        if (state.layoutMode === 'auto') {
+          if (state.rendererMode === 'cytoscape' && !state.normalized?.entry?.canonicalId) return 'force';
+          return state.normalized?.entry?.canonicalId ? 'distance' : 'kind';
+        }
+        if (state.layoutMode === 'force' && state.rendererMode !== 'cytoscape') return 'kind';
+        return state.layoutMode;
+      }
 
     function layoutByKind(nodes) {
       const columns = new Map();
@@ -2454,9 +2878,13 @@
       window.addEventListener('pointerup', endPan);
     }
 
-    function fitToView() {
-      const points = [...state.positions.values()];
-      if (!points.length) return;
+      function fitToView() {
+        if (isCytoscapeActive()) {
+          state.cy.fit(undefined, 58);
+          return;
+        }
+        const points = [...state.positions.values()];
+        if (!points.length) return;
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const point of points) {
         minX = Math.min(minX, point.x);
@@ -2474,8 +2902,17 @@
       applyTransform();
     }
 
-    function zoomBy(multiplier, anchorX = el.svg.clientWidth / 2, anchorY = el.svg.clientHeight / 2) {
-      const previous = state.scale;
+      function zoomBy(multiplier, anchorX = el.svg.clientWidth / 2, anchorY = el.svg.clientHeight / 2) {
+        if (isCytoscapeActive()) {
+          const previous = state.cy.zoom();
+          const next = Math.max(0.08, Math.min(5, previous * multiplier));
+          state.cy.zoom({
+            level: next,
+            renderedPosition: { x: anchorX, y: anchorY }
+          });
+          return;
+        }
+        const previous = state.scale;
       const next = Math.max(0.08, Math.min(5, previous * multiplier));
       if (previous === next) return;
       const worldX = (anchorX - state.panX) / previous;
@@ -2486,9 +2923,13 @@
       applyTransform();
     }
 
-    function applyTransform() {
-      el.graphViewport.setAttribute('transform', `translate(${state.panX} ${state.panY}) scale(${state.scale})`);
-    }
+      function applyTransform() {
+        el.graphViewport.setAttribute('transform', `translate(${state.panX} ${state.panY}) scale(${state.scale})`);
+      }
+
+      function isCytoscapeActive() {
+        return state.rendererMode === 'cytoscape' && !!state.cy && el.canvasWrap.classList.contains('professional-renderer');
+      }
 
     function focusEntry() {
       const entryId = state.normalized?.entry?.canonicalId;
@@ -2699,13 +3140,43 @@
       return `<span class="pill">${dot}${escapeHtml(text)}</span>`;
     }
 
-    function escapeHtml(value) {
-      return String(value ?? '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;');
-    }
-  </script>
+      function escapeHtml(value) {
+        return String(value ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;');
+      }
+
+      function installViewerDebug() {
+        window.__KO_VIEWER__ = {
+          renderer: () => isCytoscapeActive() ? 'cytoscape' : 'svg',
+          nodeCount: () => isCytoscapeActive() ? state.cy.nodes().length : document.querySelectorAll('.node-group').length,
+          fit: () => fitToView(),
+          setEdgeLabels: (enabled) => {
+            el.showEdgeLabels.checked = !!enabled;
+            state.showEdgeLabels = !!enabled;
+            render();
+          },
+          selectNodeByText: (parts) => {
+            const required = (Array.isArray(parts) ? parts : [parts]).map((part) => String(part || '').toLowerCase());
+            const node = (state.normalized?.nodes || []).find((item) => {
+              const haystack = [
+                item.kind,
+                item.namespace,
+                item.name,
+                item.canonicalId
+              ].filter(Boolean).join(' ').toLowerCase();
+              return required.every((part) => haystack.includes(part));
+            });
+            if (!node) throw new Error(`node not found: ${required.join(' ')}`);
+            state.selectedEdgeKey = null;
+            state.selectedNodeId = node.canonicalId;
+            render();
+            return node.canonicalId;
+          }
+        };
+      }
+    </script>
 </body>
 </html>

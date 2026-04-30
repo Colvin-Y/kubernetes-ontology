@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: checkout-config
+  labels:
+    app.kubernetes.io/name: checkout-api
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+data:
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  PAYMENT_PROVIDER: {{ .Values.config.paymentProvider | quote }}
+  FEATURE_STORAGE_CACHE: {{ .Values.config.storageCache | quote }}

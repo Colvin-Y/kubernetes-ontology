@@ -7,10 +7,10 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 
 <p align="center">
-  <img src="docs/assets/image-pull-demo.en.gif" alt="Topology viewer showing an ImagePullBackOff diagnostic graph" width="100%">
+  <img src="docs/assets/kind-helm-storage-demo.en.gif" alt="Topology viewer showing a kind Helm storage topology graph" width="100%">
 </p>
 <p align="center">
-  <sub>Real topology viewer capture: a Pod diagnostic graph with workload, service, config, identity/RBAC, image, and event evidence.</sub>
+  <sub>Real topology viewer capture: a kind-style Helm workload graph with Service, config, identity/RBAC, PVC, PV, StorageClass, CSI driver, provisioner, Node, and Event evidence.</sub>
 </p>
 
 `kubernetes-ontology` is a read-only Kubernetes topology service for

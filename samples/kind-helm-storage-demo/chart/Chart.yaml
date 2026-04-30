@@ -1,0 +1,6 @@
+apiVersion: v2
+name: checkout
+description: Demo checkout workload with Helm, PVC, PV, StorageClass, and CSI topology.
+type: application
+version: 2.7.3
+appVersion: 1.8.4
