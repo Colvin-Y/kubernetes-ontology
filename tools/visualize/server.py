@@ -12,6 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 VIEWER = ROOT / "tools" / "visualize" / "index.html"
+CYTOSCAPE = ROOT / "tools" / "visualize" / "vendor" / "cytoscape.min.js"
 VERSION = str(int(VIEWER.stat().st_mtime))
 DEFAULT_ONTOLOGY_SERVER = os.environ.get("ONTOLOGY_SERVER", "http://127.0.0.1:18080")
 NAMESPACED_DIAGNOSTIC_KINDS = {"pod", "workload", "pvc", "helmrelease"}
@@ -60,6 +61,14 @@ class Handler(SimpleHTTPRequestHandler):
                 .replace("__ONTOLOGY_SERVER__", html_lib.escape(DEFAULT_ONTOLOGY_SERVER, quote=True))
             )
             self.wfile.write(html.encode())
+            return
+        if parsed.path == "/vendor/cytoscape.min.js":
+            data = CYTOSCAPE.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/javascript; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
             return
         if parsed.path == "/topology":
             qs = urllib.parse.parse_qs(parsed.query)

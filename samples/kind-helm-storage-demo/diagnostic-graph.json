@@ -1,0 +1,523 @@
+{
+  "schemaVersion": "diagnostic.kubernetes-ontology.io/v1alpha1",
+  "source": "sample/kind-helm-storage-demo",
+  "recipe": "kind-helm-storage-csi",
+  "entry": {
+    "kind": "Pod",
+    "namespace": "payments",
+    "name": "checkout-api-6f9ddc7d6d-x7r2q",
+    "canonicalId": "kind-payments/core/Pod/payments/checkout-api-6f9ddc7d6d-x7r2q/pod-checkout/_"
+  },
+  "collectedAt": "2026-04-30T03:50:00Z",
+  "partial": false,
+  "freshness": {
+    "ready": true,
+    "phase": "Ready",
+    "lastRefreshAt": "2026-04-30T03:50:00Z",
+    "lastStrategy": "kind fixture",
+    "nodeCount": 22,
+    "edgeCount": 28
+  },
+  "lanes": [
+    {
+      "id": "helm",
+      "title": "Helm provenance",
+      "nodeKinds": ["HelmRelease", "HelmChart", "Workload"],
+      "relationKinds": ["managed_by_helm_release", "installs_chart"]
+    },
+    {
+      "id": "runtime",
+      "title": "Runtime workload",
+      "nodeKinds": ["Workload", "Pod", "Service", "Node"],
+      "relationKinds": ["controlled_by", "owns_pod", "selects_pod", "scheduled_on"]
+    },
+    {
+      "id": "storage",
+      "title": "PV/PVC/CSI path",
+      "nodeKinds": ["PVC", "PV", "StorageClass", "CSIDriver"],
+      "relationKinds": ["mounts_pvc", "bound_to_pv", "uses_storage_class", "provisioned_by_csi_driver", "served_by_csi_node_agent"]
+    },
+    {
+      "id": "evidence",
+      "title": "Config, identity, and events",
+      "nodeKinds": ["ConfigMap", "Secret", "ServiceAccount", "RoleBinding", "Event"],
+      "relationKinds": ["uses_config_map", "uses_secret", "uses_service_account", "bound_by_role_binding", "reported_by_event"]
+    }
+  ],
+  "nodes": [
+    {
+      "canonicalId": "kind-payments/helm/HelmRelease/payments/checkout/checkout-v17/_",
+      "kind": "HelmRelease",
+      "sourceKind": "HelmRelease",
+      "name": "checkout",
+      "namespace": "payments",
+      "attributes": {
+        "revision": 17,
+        "status": "deployed",
+        "appVersion": "1.8.4"
+      }
+    },
+    {
+      "canonicalId": "kind-payments/helm/HelmChart/oci:ghcr.io/colvin-y/charts/checkout/2.7.3/_",
+      "kind": "HelmChart",
+      "sourceKind": "HelmChart",
+      "name": "checkout-2.7.3",
+      "namespace": "",
+      "attributes": {
+        "repository": "oci://ghcr.io/colvin-y/charts",
+        "version": "2.7.3"
+      }
+    },
+    {
+      "canonicalId": "kind-payments/apps/Workload/payments/Deployment:checkout-api/deploy-checkout-api/_",
+      "kind": "Workload",
+      "sourceKind": "Deployment",
+      "name": "checkout-api",
+      "namespace": "payments",
+      "attributes": {
+        "replicas": 2,
+        "readyReplicas": 1,
+        "rolloutStatus": "Progressing",
+        "helmRelease": "checkout"
+      }
+    },
+    {
+      "canonicalId": "kind-payments/apps/Workload/payments/ReplicaSet:checkout-api-6f9ddc7d6d/rs-checkout-api/_",
+      "kind": "Workload",
+      "sourceKind": "ReplicaSet",
+      "name": "checkout-api-6f9ddc7d6d",
+      "namespace": "payments",
+      "attributes": {
+        "replicas": 2,
+        "readyReplicas": 1
+      }
+    },
+    {
+      "canonicalId": "kind-payments/core/Pod/payments/checkout-api-6f9ddc7d6d-x7r2q/pod-checkout/_",
+      "kind": "Pod",
+      "sourceKind": "Pod",
+      "name": "checkout-api-6f9ddc7d6d-x7r2q",
+      "namespace": "payments",
+      "attributes": {
+        "phase": "Running",
+        "ready": false,
+        "reason": "ContainersNotReady",
+        "nodeName": "kind-worker",
+        "serviceAccountName": "checkout-api",
+        "restartCount": 2
+      }
+    },
+    {
+      "canonicalId": "kind-payments/core/Service/payments/checkout-api/svc-checkout/_",
+      "kind": "Service",
+      "sourceKind": "Service",
+      "name": "checkout-api",
+      "namespace": "payments",
+      "attributes": {
+        "type": "ClusterIP",
+        "selector": "app.kubernetes.io/name=checkout-api"
+      }
+    },
+    {
+      "canonicalId": "kind-payments/core/ConfigMap/payments/checkout-config/cm-checkout/_",
+      "kind": "ConfigMap",
+      "sourceKind": "ConfigMap",
+      "name": "checkout-config",
+      "namespace": "payments",
+      "attributes": {
+        "keys": ["LOG_LEVEL", "PAYMENT_PROVIDER", "FEATURE_STORAGE_CACHE"]
+      }
+    },
+    {
+      "canonicalId": "kind-payments/core/Secret/payments/checkout-db/secret-checkout-db/_",
+      "kind": "Secret",
+      "sourceKind": "Secret",
+      "name": "checkout-db",
+      "namespace": "payments",
+      "attributes": {
+        "type": "Opaque",
+        "keys": ["DATABASE_URL"]
+      }
+    },
+    {
+      "canonicalId": "kind-payments/core/ServiceAccount/payments/checkout-api/sa-checkout/_",
+      "kind": "ServiceAccount",
+      "sourceKind": "ServiceAccount",
+      "name": "checkout-api",
+      "namespace": "payments",
+      "attributes": {
+        "automountServiceAccountToken": true
+      }
+    },
+    {
+      "canonicalId": "kind-payments/rbac/RoleBinding/payments/checkout-reader/rb-checkout/_",
+      "kind": "RoleBinding",
+      "sourceKind": "RoleBinding",
+      "name": "checkout-reader",
+      "namespace": "payments",
+      "attributes": {
+        "roleRef": "Role/config-reader"
+      }
+    },
+    {
+      "canonicalId": "kind-payments/core/PVC/payments/checkout-data/pvc-data/_",
+      "kind": "PVC",
+      "sourceKind": "PersistentVolumeClaim",
+      "name": "checkout-data",
+      "namespace": "payments",
+      "attributes": {
+        "phase": "Bound",
+        "storageClassName": "standard",
+        "capacity": "5Gi",
+        "volumeName": "pvc-data"
+      }
+    },
+    {
+      "canonicalId": "kind-payments/core/PVC/payments/checkout-cache/pvc-cache/_",
+      "kind": "PVC",
+      "sourceKind": "PersistentVolumeClaim",
+      "name": "checkout-cache",
+      "namespace": "payments",
+      "attributes": {
+        "phase": "Bound",
+        "storageClassName": "standard",
+        "capacity": "1Gi",
+        "volumeName": "pvc-cache"
+      }
+    },
+    {
+      "canonicalId": "kind-payments/core/PV/_/pvc-data/pv-data/_",
+      "kind": "PV",
+      "sourceKind": "PersistentVolume",
+      "name": "pvc-data",
+      "namespace": "",
+      "attributes": {
+        "phase": "Bound",
+        "capacity": "5Gi",
+        "nodeAffinity": "kind-worker",
+        "claimRef": "payments/checkout-data"
+      }
+    },
+    {
+      "canonicalId": "kind-payments/core/PV/_/pvc-cache/pv-cache/_",
+      "kind": "PV",
+      "sourceKind": "PersistentVolume",
+      "name": "pvc-cache",
+      "namespace": "",
+      "attributes": {
+        "phase": "Bound",
+        "capacity": "1Gi",
+        "nodeAffinity": "kind-worker",
+        "claimRef": "payments/checkout-cache"
+      }
+    },
+    {
+      "canonicalId": "kind-payments/storage/StorageClass/_/standard/sc-standard/_",
+      "kind": "StorageClass",
+      "sourceKind": "StorageClass",
+      "name": "standard",
+      "namespace": "",
+      "attributes": {
+        "provisioner": "rancher.io/local-path",
+        "volumeBindingMode": "WaitForFirstConsumer",
+        "reclaimPolicy": "Delete"
+      }
+    },
+    {
+      "canonicalId": "kind-payments/storage/CSIDriver/_/rancher.io-local-path/csi-local-path/_",
+      "kind": "CSIDriver",
+      "sourceKind": "CSIDriver",
+      "name": "rancher.io/local-path",
+      "namespace": "",
+      "attributes": {
+        "attachRequired": false,
+        "podInfoOnMount": false
+      }
+    },
+    {
+      "canonicalId": "kind-payments/apps/Workload/local-path-storage/Deployment:local-path-provisioner/local-path-provisioner/_",
+      "kind": "Workload",
+      "sourceKind": "Deployment",
+      "name": "local-path-provisioner",
+      "namespace": "local-path-storage",
+      "attributes": {
+        "replicas": 1,
+        "readyReplicas": 1
+      }
+    },
+    {
+      "canonicalId": "kind-payments/core/Pod/local-path-storage/local-path-provisioner-6bc4bddd6b-mgzst/pod-local-path/_",
+      "kind": "Pod",
+      "sourceKind": "Pod",
+      "name": "local-path-provisioner-6bc4bddd6b-mgzst",
+      "namespace": "local-path-storage",
+      "attributes": {
+        "phase": "Running",
+        "ready": true,
+        "nodeName": "kind-control-plane",
+        "serviceAccountName": "local-path-provisioner-service-account"
+      }
+    },
+    {
+      "canonicalId": "kind-payments/core/Node/_/kind-worker/node-kind-worker/_",
+      "kind": "Node",
+      "sourceKind": "Node",
+      "name": "kind-worker",
+      "namespace": "",
+      "attributes": {
+        "role": "worker",
+        "ready": true,
+        "runtime": "containerd"
+      }
+    },
+    {
+      "canonicalId": "kind-payments/core/Node/_/kind-control-plane/node-control-plane/_",
+      "kind": "Node",
+      "sourceKind": "Node",
+      "name": "kind-control-plane",
+      "namespace": "",
+      "attributes": {
+        "role": "control-plane",
+        "ready": true,
+        "runtime": "containerd"
+      }
+    },
+    {
+      "canonicalId": "kind-payments/core/Event/payments/checkout-api-6f9ddc7d6d-x7r2q.FailedMount/event-failedmount/_",
+      "kind": "Event",
+      "sourceKind": "Event",
+      "name": "checkout-api-6f9ddc7d6d-x7r2q.FailedMount",
+      "namespace": "payments",
+      "attributes": {
+        "type": "Warning",
+        "reason": "FailedMount",
+        "message": "MountVolume.SetUp retried while local-path volume became available on kind-worker"
+      }
+    },
+    {
+      "canonicalId": "kind-payments/core/Event/payments/checkout-data.Provisioned/event-provisioned/_",
+      "kind": "Event",
+      "sourceKind": "Event",
+      "name": "checkout-data.Provisioned",
+      "namespace": "payments",
+      "attributes": {
+        "type": "Normal",
+        "reason": "ProvisioningSucceeded",
+        "message": "Successfully provisioned local-path persistent volume pvc-data"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "kind-payments/helm/HelmRelease/payments/checkout/checkout-v17/_",
+      "to": "kind-payments/helm/HelmChart/oci:ghcr.io/colvin-y/charts/checkout/2.7.3/_",
+      "kind": "installs_chart",
+      "provenance": {"sourceType": "helm_metadata", "state": "asserted", "resolver": "helm-release/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/apps/Workload/payments/Deployment:checkout-api/deploy-checkout-api/_",
+      "to": "kind-payments/helm/HelmRelease/payments/checkout/checkout-v17/_",
+      "kind": "managed_by_helm_release",
+      "provenance": {"sourceType": "helm_labels", "state": "asserted", "resolver": "helm-release/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/core/Service/payments/checkout-api/svc-checkout/_",
+      "to": "kind-payments/helm/HelmRelease/payments/checkout/checkout-v17/_",
+      "kind": "managed_by_helm_release",
+      "provenance": {"sourceType": "helm_labels", "state": "asserted", "resolver": "helm-release/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/core/ConfigMap/payments/checkout-config/cm-checkout/_",
+      "to": "kind-payments/helm/HelmRelease/payments/checkout/checkout-v17/_",
+      "kind": "managed_by_helm_release",
+      "provenance": {"sourceType": "helm_labels", "state": "asserted", "resolver": "helm-release/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/core/Secret/payments/checkout-db/secret-checkout-db/_",
+      "to": "kind-payments/helm/HelmRelease/payments/checkout/checkout-v17/_",
+      "kind": "managed_by_helm_release",
+      "provenance": {"sourceType": "helm_labels", "state": "asserted", "resolver": "helm-release/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/apps/Workload/payments/Deployment:checkout-api/deploy-checkout-api/_",
+      "to": "kind-payments/apps/Workload/payments/ReplicaSet:checkout-api-6f9ddc7d6d/rs-checkout-api/_",
+      "kind": "controlled_by",
+      "provenance": {"sourceType": "owner_reference", "state": "asserted", "resolver": "owner-chain/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/apps/Workload/payments/ReplicaSet:checkout-api-6f9ddc7d6d/rs-checkout-api/_",
+      "to": "kind-payments/core/Pod/payments/checkout-api-6f9ddc7d6d-x7r2q/pod-checkout/_",
+      "kind": "owns_pod",
+      "provenance": {"sourceType": "owner_reference", "state": "asserted", "resolver": "owner-chain/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/core/Service/payments/checkout-api/svc-checkout/_",
+      "to": "kind-payments/core/Pod/payments/checkout-api-6f9ddc7d6d-x7r2q/pod-checkout/_",
+      "kind": "selects_pod",
+      "provenance": {"sourceType": "label_selector", "state": "inferred", "resolver": "service-selector/v1", "confidence": 0.98}
+    },
+    {
+      "from": "kind-payments/core/Pod/payments/checkout-api-6f9ddc7d6d-x7r2q/pod-checkout/_",
+      "to": "kind-payments/core/ConfigMap/payments/checkout-config/cm-checkout/_",
+      "kind": "uses_config_map",
+      "provenance": {"sourceType": "pod_spec", "state": "asserted", "resolver": "pod-spec/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/core/Pod/payments/checkout-api-6f9ddc7d6d-x7r2q/pod-checkout/_",
+      "to": "kind-payments/core/Secret/payments/checkout-db/secret-checkout-db/_",
+      "kind": "uses_secret",
+      "provenance": {"sourceType": "pod_spec", "state": "asserted", "resolver": "pod-spec/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/core/Pod/payments/checkout-api-6f9ddc7d6d-x7r2q/pod-checkout/_",
+      "to": "kind-payments/core/ServiceAccount/payments/checkout-api/sa-checkout/_",
+      "kind": "uses_service_account",
+      "provenance": {"sourceType": "pod_spec", "state": "asserted", "resolver": "pod-spec/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/core/ServiceAccount/payments/checkout-api/sa-checkout/_",
+      "to": "kind-payments/rbac/RoleBinding/payments/checkout-reader/rb-checkout/_",
+      "kind": "bound_by_role_binding",
+      "provenance": {"sourceType": "rbac_subject", "state": "inferred", "resolver": "rbac-binding/v1", "confidence": 0.94}
+    },
+    {
+      "from": "kind-payments/core/Pod/payments/checkout-api-6f9ddc7d6d-x7r2q/pod-checkout/_",
+      "to": "kind-payments/core/PVC/payments/checkout-data/pvc-data/_",
+      "kind": "mounts_pvc",
+      "provenance": {"sourceType": "pod_volume", "state": "asserted", "resolver": "pod-volume/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/core/Pod/payments/checkout-api-6f9ddc7d6d-x7r2q/pod-checkout/_",
+      "to": "kind-payments/core/PVC/payments/checkout-cache/pvc-cache/_",
+      "kind": "mounts_pvc",
+      "provenance": {"sourceType": "pod_volume", "state": "asserted", "resolver": "pod-volume/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/core/PVC/payments/checkout-data/pvc-data/_",
+      "to": "kind-payments/core/PV/_/pvc-data/pv-data/_",
+      "kind": "bound_to_pv",
+      "provenance": {"sourceType": "claim_ref", "state": "asserted", "resolver": "pvc-pv/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/core/PVC/payments/checkout-cache/pvc-cache/_",
+      "to": "kind-payments/core/PV/_/pvc-cache/pv-cache/_",
+      "kind": "bound_to_pv",
+      "provenance": {"sourceType": "claim_ref", "state": "asserted", "resolver": "pvc-pv/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/core/PV/_/pvc-data/pv-data/_",
+      "to": "kind-payments/storage/StorageClass/_/standard/sc-standard/_",
+      "kind": "uses_storage_class",
+      "provenance": {"sourceType": "pv_spec", "state": "asserted", "resolver": "storage/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/core/PV/_/pvc-cache/pv-cache/_",
+      "to": "kind-payments/storage/StorageClass/_/standard/sc-standard/_",
+      "kind": "uses_storage_class",
+      "provenance": {"sourceType": "pv_spec", "state": "asserted", "resolver": "storage/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/storage/StorageClass/_/standard/sc-standard/_",
+      "to": "kind-payments/storage/CSIDriver/_/rancher.io-local-path/csi-local-path/_",
+      "kind": "provisioned_by_csi_driver",
+      "provenance": {"sourceType": "storage_class", "state": "asserted", "resolver": "storage/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/storage/CSIDriver/_/rancher.io-local-path/csi-local-path/_",
+      "to": "kind-payments/apps/Workload/local-path-storage/Deployment:local-path-provisioner/local-path-provisioner/_",
+      "kind": "implemented_by_csi_controller",
+      "provenance": {"sourceType": "csi_driver", "state": "inferred", "resolver": "csi-controller/v1", "confidence": 0.88}
+    },
+    {
+      "from": "kind-payments/storage/CSIDriver/_/rancher.io-local-path/csi-local-path/_",
+      "to": "kind-payments/core/Pod/local-path-storage/local-path-provisioner-6bc4bddd6b-mgzst/pod-local-path/_",
+      "kind": "implemented_by_csi_node_agent",
+      "provenance": {"sourceType": "csi_driver", "state": "inferred", "resolver": "csi-node/v1", "confidence": 0.82}
+    },
+    {
+      "from": "kind-payments/apps/Workload/local-path-storage/Deployment:local-path-provisioner/local-path-provisioner/_",
+      "to": "kind-payments/core/Pod/local-path-storage/local-path-provisioner-6bc4bddd6b-mgzst/pod-local-path/_",
+      "kind": "owns_pod",
+      "provenance": {"sourceType": "owner_reference", "state": "asserted", "resolver": "owner-chain/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/core/Pod/payments/checkout-api-6f9ddc7d6d-x7r2q/pod-checkout/_",
+      "to": "kind-payments/core/Node/_/kind-worker/node-kind-worker/_",
+      "kind": "scheduled_on",
+      "provenance": {"sourceType": "pod_spec", "state": "asserted", "resolver": "scheduler/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/core/Pod/local-path-storage/local-path-provisioner-6bc4bddd6b-mgzst/pod-local-path/_",
+      "to": "kind-payments/core/Node/_/kind-control-plane/node-control-plane/_",
+      "kind": "scheduled_on",
+      "provenance": {"sourceType": "pod_spec", "state": "asserted", "resolver": "scheduler/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/core/Pod/payments/checkout-api-6f9ddc7d6d-x7r2q/pod-checkout/_",
+      "to": "kind-payments/core/Event/payments/checkout-api-6f9ddc7d6d-x7r2q.FailedMount/event-failedmount/_",
+      "kind": "reported_by_event",
+      "provenance": {"sourceType": "event_involved_object", "state": "asserted", "resolver": "event/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/core/PVC/payments/checkout-data/pvc-data/_",
+      "to": "kind-payments/core/Event/payments/checkout-data.Provisioned/event-provisioned/_",
+      "kind": "reported_by_event",
+      "provenance": {"sourceType": "event_involved_object", "state": "asserted", "resolver": "event/v1", "confidence": 1}
+    },
+    {
+      "from": "kind-payments/core/PV/_/pvc-data/pv-data/_",
+      "to": "kind-payments/core/Pod/local-path-storage/local-path-provisioner-6bc4bddd6b-mgzst/pod-local-path/_",
+      "kind": "served_by_csi_node_agent",
+      "provenance": {"sourceType": "node_affinity", "state": "inferred", "resolver": "csi-node/v1", "confidence": 0.81}
+    },
+    {
+      "from": "kind-payments/core/PV/_/pvc-cache/pv-cache/_",
+      "to": "kind-payments/core/Pod/local-path-storage/local-path-provisioner-6bc4bddd6b-mgzst/pod-local-path/_",
+      "kind": "served_by_csi_node_agent",
+      "provenance": {"sourceType": "node_affinity", "state": "inferred", "resolver": "csi-node/v1", "confidence": 0.81}
+    }
+  ],
+  "explanation": [
+    "Fixture modeled after a kind cluster with a Helm-installed checkout workload and local-path storage.",
+    "The graph follows the pod through Helm provenance, Service selection, config and identity, then into PVC/PV/StorageClass/CSIDriver evidence."
+  ],
+  "warnings": [
+    {
+      "code": "kind-local-path-storage",
+      "message": "kind uses local-path style storage in this fixture, so PV node affinity matters for the consuming Pod.",
+      "nextAction": "Check the Pod node, PV nodeAffinity, and local-path provisioner Pod together."
+    }
+  ],
+  "degradedSources": [],
+  "rankedEvidence": [
+    {
+      "rank": 1,
+      "kind": "storage-path",
+      "severity": "medium",
+      "reason": "Pod mounts two PVCs backed by the same StorageClass and CSI driver",
+      "message": "The incident path crosses Pod -> PVC -> PV -> StorageClass -> CSIDriver.",
+      "nodeId": "kind-payments/core/PVC/payments/checkout-data/pvc-data/_",
+      "edgeKey": "kind-payments/core/Pod/payments/checkout-api-6f9ddc7d6d-x7r2q/pod-checkout/_|mounts_pvc|kind-payments/core/PVC/payments/checkout-data/pvc-data/_",
+      "confidence": 0.95
+    },
+    {
+      "rank": 2,
+      "kind": "helm-owner",
+      "severity": "low",
+      "reason": "The workload and its service/config resources share Helm release ownership",
+      "message": "A rollback of release checkout would affect the runtime and storage-consuming workload.",
+      "nodeId": "kind-payments/helm/HelmRelease/payments/checkout/checkout-v17/_",
+      "edgeKey": "kind-payments/apps/Workload/payments/Deployment:checkout-api/deploy-checkout-api/_|managed_by_helm_release|kind-payments/helm/HelmRelease/payments/checkout/checkout-v17/_",
+      "confidence": 0.92
+    }
+  ],
+  "conflicts": [],
+  "budgets": {
+    "maxNodes": 80,
+    "maxEdges": 160,
+    "nodeCount": 22,
+    "edgeCount": 28,
+    "truncated": false,
+    "truncationReasons": []
+  }
+}

@@ -23,6 +23,8 @@ class VisualizeServerTest(unittest.TestCase):
         try:
             body = urllib.request.urlopen(viewer.url + "/").read().decode()
             self.assertIn('value="http://kubernetes-ontology:18080"', body)
+            self.assertIn('/vendor/cytoscape.min.js', body)
+            self.assertIn("Professional renderer", body)
             self.assertNotIn(
                 "el.serverUrl.value === 'http://kubernetes-ontology:18080'",
                 body,
@@ -30,6 +32,16 @@ class VisualizeServerTest(unittest.TestCase):
         finally:
             viewer.close()
             visualize_server.DEFAULT_ONTOLOGY_SERVER = previous
+
+    def test_vendor_cytoscape_is_served(self):
+        viewer = running_server(visualize_server.Handler)
+        try:
+            response = urllib.request.urlopen(viewer.url + "/vendor/cytoscape.min.js")
+            body = response.read().decode()
+            self.assertIn("application/javascript", response.headers["Content-Type"])
+            self.assertIn("Cytoscape", body[:300])
+        finally:
+            viewer.close()
 
     def test_diagnostic_requires_namespace_before_upstream_request(self):
         hits = []

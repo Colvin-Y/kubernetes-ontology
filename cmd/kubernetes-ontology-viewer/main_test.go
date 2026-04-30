@@ -2,12 +2,57 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestServeIndexIncludesProfessionalRenderer(t *testing.T) {
+	viewer := httptest.NewServer(newHandler("http://kubernetes-ontology:18080", time.Second))
+	defer viewer.Close()
+
+	resp, err := http.Get(viewer.URL + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(body)
+	if !strings.Contains(text, "/vendor/cytoscape.min.js") || !strings.Contains(text, "Professional renderer") {
+		t.Fatalf("expected professional renderer assets in index")
+	}
+	if !strings.Contains(text, `value="http://kubernetes-ontology:18080"`) {
+		t.Fatalf("expected default ontology server to be injected")
+	}
+}
+
+func TestServeCytoscapeAsset(t *testing.T) {
+	viewer := httptest.NewServer(newHandler("http://kubernetes-ontology:18080", time.Second))
+	defer viewer.Close()
+
+	resp, err := http.Get(viewer.URL + "/vendor/cytoscape.min.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if contentType := resp.Header.Get("Content-Type"); !strings.Contains(contentType, "application/javascript") {
+		t.Fatalf("expected javascript content type, got %q", contentType)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body[:min(len(body), 300)]), "Cytoscape") {
+		t.Fatalf("expected cytoscape asset body")
+	}
+}
 
 func TestServeDiagnosticForwardsRecipeAndBudgets(t *testing.T) {
 	var got url.Values

@@ -1,0 +1,21 @@
+replicaCount: 2
+
+image:
+  repository: registry.k8s.io/e2e-test-images/agnhost
+  tag: "2.45"
+  pullPolicy: IfNotPresent
+
+service:
+  port: 80
+
+persistence:
+  storageClassName: standard
+  data:
+    size: 5Gi
+  cache:
+    size: 1Gi
+
+config:
+  logLevel: info
+  paymentProvider: demo
+  storageCache: "true"

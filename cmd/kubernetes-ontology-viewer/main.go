@@ -92,6 +92,8 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/":
 		h.serveIndex(w)
+	case "/vendor/cytoscape.min.js":
+		h.serveCytoscape(w)
 	case "/topology":
 		h.serveTopology(w, r)
 	case "/diagnostic":
@@ -112,6 +114,11 @@ func (h *handler) serveIndex(w http.ResponseWriter) {
 	body = strings.ReplaceAll(body, "__ONTOLOGY_SERVER__", html.EscapeString(h.defaultServer))
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = io.WriteString(w, body)
+}
+
+func (h *handler) serveCytoscape(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	_, _ = io.WriteString(w, visualize.CytoscapeJS)
 }
 
 func (h *handler) serveTopology(w http.ResponseWriter, r *http.Request) {
