@@ -641,6 +641,8 @@ archives, so marketplace pages should link to the live repository path:
 - [docs/design/README.md](docs/design/README.md): design document index
 - [docs/ontology/README.md](docs/ontology/README.md): ontology notes
 - [docs/release.md](docs/release.md): release checklist
+- [CONTRIBUTING.md](CONTRIBUTING.md): contribution workflow and validation
+- [SECURITY.md](SECURITY.md): supported versions, reporting, and safety boundaries
 - [CHANGELOG.md](CHANGELOG.md): release notes
 
 ## License

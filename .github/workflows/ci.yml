@@ -72,3 +72,31 @@ jobs:
           python-version: "3.x"
 
       - run: make ci-visualize
+
+  kind-e2e:
+    name: Kind end-to-end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - uses: azure/setup-helm@v4
+
+      - uses: helm/kind-action@v1
+        with:
+          cluster_name: ko-e2e
+          config: samples/kind-helm-storage-demo/kind-config.yaml
+          wait: 120s
+
+      - name: Build local image
+        run: docker build -t kubernetes-ontology:e2e .
+
+      - name: Load image into kind
+        run: kind load docker-image kubernetes-ontology:e2e --name ko-e2e
+
+      - name: Verify in-cluster diagnostics
+        run: bash scripts/ci/verify_kind_e2e.sh
